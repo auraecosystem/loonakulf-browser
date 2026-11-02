@@ -88,3 +88,79 @@ export default function App() {
 }
 
 const navBtnStyle = { padding: '8px 12px', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer' };
+function SandboxTestingEnvironment({ currentUrl, onPageChange }) {
+  const [stockCount, setStockCount] = useState(0);
+  const [isChecked, setIsChecked] = useState(false);
+  const [emailText, setEmailText] = useState('');
+
+  // Automatically reset mock layout properties when navigating away
+  useEffect(() => {
+     setStockCount(0);
+     setIsChecked(false);
+     setEmailText('');
+  }, [currentUrl]);
+
+  return (
+    <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #dee2e6' }}>
+      <h3 style={{ marginTop: 0, color: '#495057' }}>🛝 Local Mock Target Page Playground</h3>
+      <p style={{ fontSize: '12px', color: '#6c757d' }}>Mock Active URL Context: <code style={{ background: '#eee', padding: '2px 4px' }}>{currentUrl}</code></p>
+      
+      <div id="mock-webpage-viewport" style={{ background: '#fff', padding: '20px', borderRadius: '6px', border: '1px solid #ced4da', minHeight: '300px' }}>
+        
+        {/* Element 1: Form Auto Fill targets */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 'bold' }}>Target Input (ID: "email-field")</label>
+          <input 
+            type="email" 
+            id="email-field" 
+            value={emailText} 
+            onChange={(e) => setEmailText(e.target.value)}
+            placeholder="Waiting for script filling..." 
+            style={{ width: '100%', padding: '6px', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        {/* Element 2: Agreement Checkbox target */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold' }}>
+            <input 
+              type="checkbox" 
+              className="agree-checkbox" 
+              checked={isChecked}
+              onChange={(e) => setIsChecked(e.target.checked)}
+            />
+            Target Checkbox (Class: "agree-checkbox")
+          </label>
+        </div>
+
+        {/* Element 3: Dynamic Stock tracker logic target */}
+        <div style={{ background: '#fff3cd', padding: '12px', borderRadius: '4px', border: '1px solid #ffeeba', marginBottom: '15px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Stock Target (Class: "stock-status"):</span>
+          <div className="stock-status" style={{ fontSize: '18px', fontWeight: 'bold', color: stockCount >= 3 ? 'green' : 'red', marginTop: '4px' }}>
+            {stockCount >= 3 ? '✅ In Stock - Order Now!' : 'Temporarily Unavailable'}
+          </div>
+          <button 
+            onClick={() => setStockCount(prev => prev + 1)}
+            style={{ marginTop: '8px', padding: '4px 8px', fontSize: '11px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+          >
+            Simulate Automation Page Reload Counter (+1)
+          </button>
+        </div>
+
+        <div style={{ textAlign: 'right' }}>
+           <button 
+             type="submit" 
+             onClick={() => alert(`Submitted parameters:\nEmail: ${emailText}\nChecked: ${isChecked}`)}
+             style={{ padding: '6px 12px', background: '#17a2b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+           >
+             Submit Form
+           </button>
+        </div>
+
+      </div>
+      <small style={{ color: '#6c757d', marginTop: '10px', display: 'block', lineHeight: '1.4' }}>
+        💡 <strong>How to test:</strong> Paste code options into the manager input field on the left. Click "Run" next to your processed bookmarklet. It will execute immediately on this target panel!
+      </small>
+    </div>
+  );
+}
