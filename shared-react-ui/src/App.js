@@ -6,6 +6,8 @@ import { processAndValidateBookmarklet } from './parser';
 export default function App() {
   const [currentUrl, setCurrentUrl] = useState('https://example.com');
   const [inputUrl, setInputUrl] = useState('https://example.com');
+  const editInputStyle = { padding: '6px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '13px' };
+const actionBtnStyle = { padding: '5px 10px', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' };
 
   // Listen for messages from Native Shells updating the current URL when clicking a link
   useEffect(() => {
@@ -164,3 +166,46 @@ function SandboxTestingEnvironment({ currentUrl, onPageChange }) {
     </div>
   );
 }
+
+const [editingId, setEditingId] = useState(null);
+const [editTitle, setEditTitle] = useState('');
+const [editCategory, setEditCategory] = useState('');
+const [editRawCode, setEditRawCode] = useState('');
+const [editError, setEditError] = useState(null);
+
+// Trigger edit mode for a specific script item card
+const startEditing = (bml) => {
+  setEditingId(bml.id);
+  setEditTitle(bml.title);
+  setEditCategory(bml.category);
+  setEditRawCode(bml.rawCode);
+  setEditError(null);
+};
+
+const handleUpdateBookmarklet = async (e) => {
+  e.preventDefault();
+  setEditError(null);
+
+  // Send the edited code through your single-line validation engine
+  const parsingResult = processAndValidateBookmarklet(editRawCode);
+
+  if (!parsingResult.isValid) {
+    setEditError(parsingResult.error);
+    return;
+  }
+
+  try {
+    // Modify record directly inside local IndexedDB storage
+    await db.bookmarklets.update(editingId, {
+      title: editTitle,
+      category: editCategory,
+      rawCode: editRawCode,
+      cleanCode: parsingResult.cleanCode
+    });
+    
+    // Clear out edit panel state configurations
+    setEditingId(null);
+  } catch (err) {
+    setEditError("Failed to update database workspace fields.");
+  }
+};
