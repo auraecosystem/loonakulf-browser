@@ -1,0 +1,2 @@
+cd shared-react-ui
+npm install dexie
