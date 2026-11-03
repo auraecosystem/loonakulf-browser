@@ -4,6 +4,8 @@
  * UA strings are user-controlled input. This parser only classifies known
  * tokens; it does not execute or trust the supplied string.
  */
+const VERSION = "(\\d+(?:\\.\\d+){0,3})";
+
 function matchVersion(ua, expression) {
   const match = ua.match(expression);
   return match ? match[1] : null;
