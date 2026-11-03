@@ -1,222 +1,508 @@
-import React, { useState, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from './db';
-import { processAndValidateBookmarklet, auditScriptSecurityRisks } from './parser';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "./db";
+import {
+  processAndValidateBookmarklet,
+  auditScriptSecurityRisks,
+} from "./parser";
+import {
+  parseUserAgent,
+  detectCapabilities,
+} from "./platform/ua-parser";
 
 const UA_PROFILES = {
-  DESKTOP_CHROME: { label: "🖥️ Desktop Chrome", string: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" },
-  IPHONE_CHROME: { label: "📱 iPhone Chrome (iOS 27)", string: "Mozilla/5.0 (iPhone; CPU iPhone OS 27_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1" },
-  IPHONE_SAFARI: { label: "🍏 iPhone Safari", string: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1" }
+  DESKTOP_CHROME: {
+    label: "Desktop Chrome",
+    string:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  },
+  IPHONE_CHROME: {
+    label: "iPhone Chrome (iOS 27)",
+    string:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 27_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1",
+  },
+  IPHONE_SAFARI: {
+    label: "iPhone Safari",
+    string:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+  },
+  IPAD_SAFARI: {
+    label: "iPad Safari",
+    string:
+      "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+  },
+};
+
+const panelStyle = {
+  background: "#fff",
+  border: "1px solid #ddd",
+  borderRadius: 8,
+  padding: 12,
+  marginBottom: 12,
 };
 
 export default function App() {
-  const [currentUrl, setCurrentUrl] = useState('https://example.com');
-  const [inputUrl, setInputUrl] = useState('https://example.com');
-  const [activeUaKey, setActiveUaKey] = useState('DESKTOP_CHROME');
+  const [currentUrl, setCurrentUrl] = useState("https://example.com");
+  const [inputUrl, setInputUrl] = useState("https://example.com");
+  const [activeUaKey, setActiveUaKey] = useState("DESKTOP_CHROME");
   const [logs, setLogs] = useState([]);
-  
-  // Storage Forms State
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('General');
-  const [rawCode, setRawCode] = useState('');
-  const [validationError, setValidationError] = useState(null);
-  
-  // Filters & Editing States
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("General");
+  const [rawCode, setRawCode] = useState("");
+  const [validationError, setValidationError] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editCategory, setEditCategory] = useState('');
-  const [editRawCode, setEditRawCode] = useState('');
-  const [editError, setEditError] = useState(null);
-  const [scratchpadCode, setScratchpadCode] = useState('');
-
-  // Proxy States
-  const [proxyIp, setProxyIp] = useState('');
-  const [proxyPort, setProxyPort] = useState('');
+  const [editTitle, setEditTitle] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editRawCode, setEditRawCode] = useState("");
+  const [editError, setEditError] = useState("");
+  const [scratchpadCode, setScratchpadCode] = useState("");
+  const [proxyIp, setProxyIp] = useState("");
+  const [proxyPort, setProxyPort] = useState("");
   const [isProxyActive, setIsProxyActive] = useState(false);
+  const bookmarklets = useLiveQuery(() => db.bookmarklets.toArray(), []) || [];
 
-  const bookmarklets = useLiveQuery(() => db.bookmarklets.toArray()) || [];
+  const actualUa = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const detectedPlatform = useMemo(() => parseUserAgent(actualUa), [actualUa]);
+  const capabilities = useMemo(
+    () => detectCapabilities(typeof window !== "undefined" ? window : null),
+    []
+  );
 
-  useEffect(() => {
-    window.updateBrowserAddressBar = (url) => { setCurrentUrl(url); setInputUrl(url); };
-    const handleNativeLogs = (e) => {
-      if (e.data && e.data.type === 'NATIVE_CONSOLE_LOG') appendToConsole(e.data.logType, e.data.message);
-    };
-    window.addEventListener('message', handleNativeLogs);
-    return () => window.removeEventListener('message', handleNativeLogs);
+  const appendToConsole = useCallback((type, message) => {
+    setLogs((previous) =>
+      [
+        {
+          id: Date.now() + Math.random(),
+          timestamp: new Date().toLocaleTimeString(),
+          type,
+          text: String(message),
+        },
+        ...previous,
+      ].slice(0, 50)
+    );
   }, []);
 
-  const appendToConsole = (type, message) => {
-    setLogs(prev => [{ id: Math.random(), timestamp: new Date().toLocaleTimeString(), type, text: String(message) }, ...prev].slice(0, 50));
-  };
+  useEffect(() => {
+    const handleAddress = (url) => {
+      setCurrentUrl(url);
+      setInputUrl(url);
+    };
+    const handleNativeLogs = (event) => {
+      const payload = event.data;
+      if (payload && payload.type === "NATIVE_CONSOLE_LOG") {
+        appendToConsole(payload.logType || "log", payload.message || "");
+      }
+    };
+
+    window.updateBrowserAddressBar = handleAddress;
+    window.addEventListener("message", handleNativeLogs);
+    const removeUrlListener = window.browserAPI?.onTargetUrlChanged?.(handleAddress);
+    const removeLogListener = window.browserAPI?.onRuntimeConsoleLog?.((entry) =>
+      appendToConsole(entry.type || "log", entry.message || "")
+    );
+
+    return () => {
+      window.removeEventListener("message", handleNativeLogs);
+      if (typeof removeUrlListener === "function") removeUrlListener();
+      if (typeof removeLogListener === "function") removeLogListener();
+      delete window.updateBrowserAddressBar;
+    };
+  }, [appendToConsole]);
 
   const handleExecute = (code) => {
-    const securityAudit = auditScriptSecurityRisks(code);
-    if (securityAudit.isHighRisk && !window.confirm(`🛡️ SECURITY SHIELD WARNING:\n\n${securityAudit.warnings.join("\n\n")}\n\nRun script anyway?`)) return;
+    const audit = auditScriptSecurityRisks(code);
+    if (
+      audit.isHighRisk &&
+      !window.confirm(
+        "SECURITY WARNING\n\n" +
+          audit.warnings.join("\n\n") +
+          "\n\nRun this script anyway?"
+      )
+    ) {
+      return;
+    }
 
     if (window.webkit?.messageHandlers?.bookmarkletBridge) {
       window.webkit.messageHandlers.bookmarkletBridge.postMessage(code);
     } else if (window.browserAPI?.runBookmarklet) {
       window.browserAPI.runBookmarklet(code);
-    } else if (window.pyqtBridge) {
+    } else if (window.pyqtBridge?.execute) {
       window.pyqtBridge.execute(code);
     } else {
-      appendToConsole('info', `Simulated local execution of clean script.`);
+      appendToConsole("info", "No native browser bridge is connected.");
     }
   };
 
   const sendNavAction = (action, targetUrl = null) => {
-    const payload = { type: 'BROWSER_ACTION', action, url: targetUrl };
-    if (window.browserAPI?.sendNavAction) window.browserAPI.sendNavAction(payload);
-    if (action === 'GOTO' && targetUrl) { setCurrentUrl(targetUrl); setInputUrl(targetUrl); }
+    if (action === "GOTO" && targetUrl) {
+      const destination = /^(https?:\/\/)/i.test(targetUrl)
+        ? targetUrl
+        : "https://" + targetUrl;
+      setCurrentUrl(destination);
+      setInputUrl(destination);
+      window.browserAPI?.sendNavAction?.({
+        type: "BROWSER_ACTION",
+        action,
+        url: destination,
+      });
+      return;
+    }
+    window.browserAPI?.sendNavAction?.({ type: "BROWSER_ACTION", action });
   };
 
   const handleUaChange = (key) => {
+    const profile = UA_PROFILES[key];
+    if (!profile) return;
     setActiveUaKey(key);
-    if (window.browserAPI?.setUserAgent) window.browserAPI.setUserAgent({ type: 'SET_USER_AGENT', uaString: UA_PROFILES[key].string });
+    window.browserAPI?.setUserAgent?.({
+      type: "SET_USER_AGENT",
+      uaString: profile.string,
+    });
   };
 
-  const handleSave = async (e) => {
-    e.preventDefault();
+  const handleSave = async (event) => {
+    event.preventDefault();
     const result = processAndValidateBookmarklet(rawCode);
-    if (!result.isValid) return setValidationError(result.error);
-    await db.bookmarklets.add({ title, category, rawCode, cleanCode: result.cleanCode });
-    setTitle(''); setRawCode(''); setValidationError(null);
+    if (!result.isValid) {
+      setValidationError(result.error);
+      return;
+    }
+    await db.bookmarklets.add({
+      title: title.trim(),
+      category: category.trim() || "General",
+      rawCode,
+      cleanCode: result.cleanCode,
+    });
+    setTitle("");
+    setRawCode("");
+    setValidationError("");
   };
 
-  const handleUpdate = async (e) => {
-    e.preventDefault();
+  const handleUpdate = async (event) => {
+    event.preventDefault();
     const result = processAndValidateBookmarklet(editRawCode);
-    if (!result.isValid) return setEditError(result.error);
-    await db.bookmarklets.update(editingId, { title: editTitle, category: editCategory, rawCode: editRawCode, cleanCode: result.cleanCode });
+    if (!result.isValid) {
+      setEditError(result.error);
+      return;
+    }
+    await db.bookmarklets.update(editingId, {
+      title: editTitle.trim(),
+      category: editCategory.trim() || "General",
+      rawCode: editRawCode,
+      cleanCode: result.cleanCode,
+    });
     setEditingId(null);
+    setEditError("");
   };
 
   const handleExport = async () => {
     const records = await db.bookmarklets.toArray();
-    const blob = new Blob([JSON.stringify({ version: 1, data: records }, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `backup.json`; link.click();
+    const blob = new Blob(
+      [JSON.stringify({ version: 1, data: records }, null, 2)],
+      { type: "application/json" }
+    );
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "loonakulf-bookmarklets.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
-  const handleImport = (e) => {
+  const handleImport = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const parsed = JSON.parse(evt.target.result);
-      for (const item of parsed.data) {
-        await db.bookmarklets.add({ title: item.title, category: item.category, rawCode: item.rawCode, cleanCode: item.cleanCode });
+    reader.onload = async () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        if (!Array.isArray(parsed.data)) {
+          throw new Error("Backup must contain a data array.");
+        }
+        const records = parsed.data
+          .filter(
+            (item) =>
+              item &&
+              typeof item.title === "string" &&
+              typeof item.rawCode === "string"
+          )
+          .map((item) => ({
+            title: item.title,
+            category:
+              typeof item.category === "string" ? item.category : "General",
+            rawCode: item.rawCode,
+            cleanCode:
+              typeof item.cleanCode === "string" ? item.cleanCode : item.rawCode,
+          }));
+        await db.bookmarklets.bulkAdd(records);
+        appendToConsole("info", "Imported " + records.length + " bookmarklets.");
+      } catch (error) {
+        appendToConsole("error", "Import failed: " + error.message);
       }
+      event.target.value = "";
     };
-    reader.readAsText(e.target.files[0]);
+    reader.readAsText(file);
+  };
+
+  const handleProxySubmit = (event) => {
+    event.preventDefault();
+    const port = Number(proxyPort);
+    if (!proxyIp.trim() || !Number.isInteger(port) || port < 1 || port > 65535) {
+      appendToConsole("error", "Enter a valid proxy host and port.");
+      return;
+    }
+    window.browserAPI?.setProxyConfig?.({
+      enabled: true,
+      rules: "http=" + proxyIp.trim() + ":" + port + ";https=" + proxyIp.trim() + ":" + port,
+    });
+    setIsProxyActive(true);
   };
 
   const handleClearCache = () => {
-    if (window.browserAPI?.clearCacheData) window.browserAPI.clearCacheData();
+    window.browserAPI?.clearCacheData?.();
   };
 
-  const handleProxySubmit = (e) => {
-    e.preventDefault();
-    if (window.browserAPI?.setProxyConfig) {
-      window.browserAPI.setProxyConfig({ enabled: true, rules: `http=${proxyIp}:${proxyPort};https=${proxyIp}:${proxyPort}` });
-      setIsProxyActive(true);
+  const handleInstantInject = () => {
+    const result = processAndValidateBookmarklet(scratchpadCode);
+    if (!result.isValid) {
+      appendToConsole("error", result.error);
+      return;
     }
+    handleExecute(result.cleanCode);
   };
 
-  const filtered = bookmarklets.filter(b => (selectedCategory === 'ALL' || b.category === selectedCategory) && b.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filtered = bookmarklets.filter(
+    (item) =>
+      (selectedCategory === "ALL" || item.category === selectedCategory) &&
+      item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const categories = [
+    "ALL",
+    ...new Set(bookmarklets.map((item) => item.category).filter(Boolean)),
+  ];
 
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: '20px', maxWidth: '1000px', margin: '0 auto', background: '#f8f9fa' }}>
-      {/* TOOLBAR */}
-      <div style={{ display: 'flex', gap: '8px', background: '#e9ecef', padding: '10px', borderRadius: '8px', marginBottom: '15px', alignItems: 'center' }}>
-        <button onClick={() => sendNavAction('BACK')} style={{ padding: '6px' }}>◀</button>
-        <button onClick={() => sendNavAction('FORWARD')} style={{ padding: '6px' }}>▶</button>
-        <button onClick={() => sendNavAction('RELOAD')} style={{ padding: '6px' }}>🔄</button>
-        <input style={{ flexGrow: 1, padding: '6px' }} value={inputUrl} onChange={e => setInputUrl(e.target.value)} />
-        <button onClick={() => sendNavAction('GOTO', inputUrl)} style={{ padding: '6px 12px', background: '#007bff', color: '#fff' }}>Go</button>
-        <select value={activeUaKey} onChange={e => handleUaChange(e.target.value)} style={{ padding: '6px' }}>
-          {Object.keys(UA_PROFILES).map(k => <option key={k} value={k}>{UA_PROFILES[k].label}</option>)}
+    <main
+      style={{
+        fontFamily: "system-ui, sans-serif",
+        padding: 20,
+        maxWidth: 1200,
+        margin: "0 auto",
+        background: "#f8f9fa",
+        color: "#212529",
+        minHeight: "100vh",
+      }}
+    >
+      <h1>Loonakulf Browser</h1>
+      <section style={{ ...panelStyle, display: "flex", gap: 8, alignItems: "center" }}>
+        <button type="button" onClick={() => sendNavAction("BACK")}>Back</button>
+        <button type="button" onClick={() => sendNavAction("FORWARD")}>Forward</button>
+        <button type="button" onClick={() => sendNavAction("RELOAD")}>Reload</button>
+        <input
+          aria-label="Address"
+          style={{ flex: 1, minWidth: 100, padding: 8 }}
+          value={inputUrl}
+          onChange={(event) => setInputUrl(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") sendNavAction("GOTO", inputUrl);
+          }}
+        />
+        <button type="button" onClick={() => sendNavAction("GOTO", inputUrl)}>Go</button>
+        <select
+          aria-label="User-Agent profile"
+          value={activeUaKey}
+          onChange={(event) => handleUaChange(event.target.value)}
+        >
+          {Object.entries(UA_PROFILES).map(([key, profile]) => (
+            <option key={key} value={key}>{profile.label}</option>
+          ))}
         </select>
-      </div>
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <div>
-          {/* SYNC & CACHE CONTROL */}
-          <div style={{ background: '#fff', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd', display: 'flex', gap: '10px' }}>
-            <button onClick={handleExport}>📤 Export</button>
-            <label style={{ cursor: 'pointer' }}>📥 Import <input type="file" onChange={handleImport} style={{ display: 'none' }} /></label>
-            <button onClick={handleClearCache} style={{ background: '#dc3545', color: '#fff' }}>🗑️ Clear Cache</button>
+      <section style={panelStyle}>
+        <h2>Detected platform</h2>
+        <p>
+          <strong>{detectedPlatform.browser.name}</strong>{" "}
+          {detectedPlatform.browser.version || "version unknown"} ·{" "}
+          {detectedPlatform.os.name} {detectedPlatform.os.version || ""} ·{" "}
+          {detectedPlatform.device.vendor || "Device unknown"}{" "}
+          {detectedPlatform.device.model || ""}
+        </p>
+        <p>
+          Rendering engine: {detectedPlatform.engine.name}{" "}
+          {detectedPlatform.engine.version || ""} · Device class:{" "}
+          {detectedPlatform.device.type}
+        </p>
+        <p>
+          Capabilities: touch {capabilities.touch === null ? "unknown" : capabilities.touch ? "yes" : "no"} ·
+          online {capabilities.online === null ? "unknown" : capabilities.online ? "yes" : "no"} ·
+          service worker {capabilities.serviceWorker ? "yes" : "no"}
+        </p>
+        <details>
+          <summary>Raw User-Agent</summary>
+          <code style={{ overflowWrap: "anywhere" }}>{actualUa || "Unavailable"}</code>
+        </details>
+      </section>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+        <section>
+          <div style={{ ...panelStyle, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={handleExport}>Export</button>
+            <label>
+              Import <input type="file" accept="application/json" onChange={handleImport} />
+            </label>
+            <button type="button" onClick={handleClearCache}>Clear Cache</button>
           </div>
 
-          {/* PROXY PANEL */}
-          <form onSubmit={handleProxySubmit} style={{ background: '#fff', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd', display: 'flex', gap: '5px' }}>
-            <input placeholder="Proxy IP" value={proxyIp} onChange={e => setProxyIp(e.target.value)} style={{ width: '60%' }} />
-            <input placeholder="Port" value={proxyPort} onChange={e => setProxyPort(e.target.value)} style={{ width: '20%' }} />
+          <form onSubmit={handleProxySubmit} style={panelStyle}>
+            <h2>Proxy</h2>
+            <input
+              aria-label="Proxy host"
+              placeholder="Proxy host or IP"
+              value={proxyIp}
+              onChange={(event) => setProxyIp(event.target.value)}
+              required
+            />
+            <input
+              aria-label="Proxy port"
+              placeholder="Port"
+              inputMode="numeric"
+              value={proxyPort}
+              onChange={(event) => setProxyPort(event.target.value)}
+              required
+            />
             <button type="submit" disabled={isProxyActive}>Connect</button>
-            {isProxyActive && <button type="button" onClick={() => { window.browserAPI.setProxyConfig({ enabled: false }); setIsProxyActive(false); }}>X</button>}
+            {isProxyActive && (
+              <button
+                type="button"
+                onClick={() => {
+                  window.browserAPI?.setProxyConfig?.({ enabled: false });
+                  setIsProxyActive(false);
+                }}
+              >
+                Disconnect
+              </button>
+            )}
           </form>
 
-          {/* SCRATCHPAD QUICK INJECTOR */}
-          <div style={{ background: '#fff', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' }}>
-            <input placeholder="Quick script payload..." value={scratchpadCode} onChange={e => setScratchpadCode(e.target.value)} style={{ width: '75%', padding: '6px' }} />
-            <button onClick={handleInstantInject} style={{ width: '20%', padding: '6px', marginLeft: '5px' }}>Inject</button>
+          <section style={panelStyle}>
+            <h2>Quick script</h2>
+            <textarea
+              aria-label="Quick script payload"
+              value={scratchpadCode}
+              onChange={(event) => setScratchpadCode(event.target.value)}
+              rows={4}
+              style={{ width: "100%" }}
+            />
+            <button type="button" onClick={handleInstantInject}>Validate and run</button>
+          </section>
+
+          <form onSubmit={handleSave} style={panelStyle}>
+            <h2>Create bookmarklet</h2>
+            <input
+              placeholder="Title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              required
+            />
+            <input
+              placeholder="Category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            />
+            <textarea
+              placeholder="Paste JavaScript or bookmarklet code"
+              value={rawCode}
+              onChange={(event) => setRawCode(event.target.value)}
+              rows={6}
+              required
+              style={{ width: "100%" }}
+            />
+            {validationError && <p role="alert">{validationError}</p>}
+            <button type="submit">Save bookmarklet</button>
+          </form>
+        </section>
+
+        <section>
+          <div style={panelStyle}>
+            <h2>Bookmarklets</h2>
+            <input
+              placeholder="Search by title"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              style={{ width: "100%", boxSizing: "border-box" }}
+            />
+            <select
+              aria-label="Filter category"
+              value={selectedCategory}
+              onChange={(event) => setSelectedCategory(event.target.value)}
+            >
+              {categories.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+            {filtered.map((item) => (
+              <article key={item.id} style={{ borderTop: "1px solid #ddd", padding: "12px 0" }}>
+                {editingId === item.id ? (
+                  <form onSubmit={handleUpdate}>
+                    <input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} required />
+                    <input value={editCategory} onChange={(event) => setEditCategory(event.target.value)} />
+                    <textarea value={editRawCode} onChange={(event) => setEditRawCode(event.target.value)} rows={5} required />
+                    {editError && <p role="alert">{editError}</p>}
+                    <button type="submit">Update</button>
+                    <button type="button" onClick={() => setEditingId(null)}>Cancel</button>
+                  </form>
+                ) : (
+                  <>
+                    <strong>{item.title}</strong> <small>({item.category})</small>
+                    <div>
+                      <button type="button" onClick={() => handleExecute(item.cleanCode)}>Run</button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(item.id);
+                          setEditTitle(item.title);
+                          setEditCategory(item.category);
+                          setEditRawCode(item.rawCode);
+                          setEditError("");
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm("Delete this bookmarklet?")) {
+                            await db.bookmarklets.delete(item.id);
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </article>
+            ))}
+            {filtered.length === 0 && <p>No bookmarklets found.</p>}
           </div>
 
-          {/* INTAKE CREATION FORM */}
-          <form onSubmit={handleSave} style={{ background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ddd', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <h3>Create Script</h3>
-            <input placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} required />
-            <input placeholder="Category" value={category} onChange={e => setCategory(e.target.value)} />
-            <textarea placeholder="Paste payload raw code..." value={rawCode} onChange={e => setRawCode(e.target.value)} required rows={4} />
-            {validationError && <p style={{ color: 'red' }}>{validationError}</p>}
-            <button type="submit">Save Bookmarklet</button>
-          </form>
-        </div>
-
-        {/* MOCK WORKSPACE PLAYGROUND SANDBOX */}
-        <div>
-          <input placeholder="🔍 Filter local UI..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '10px' }} />
-          <div style={{ maxH: '400px', overflowY: 'auto' }}>{filtered.map(b => (<div key={b.id} style={{ background: '#fff', padding: '10px', borderRadius: '4px', border: '1px solid #eee', marginBottom: '8px' }}>{editingId === b.id ? (
-
-          <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-
-          <input value={editTitle} onChange={e => setEditTitle(e.target.value)} required />
-
-          <input value={editCategory} onChange={e => setEditCategory(e.target.value)} />
-
-          <textarea value={editRawCode} onChange={e => setEditRawCode(e.target.value)} required />
-          Update) : (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>{b.title} ({b.category})<button onClick={() => handleExecute(b.cleanCode)}>Run
-          <button onClick={() => { setEditingId(b.id); setEditTitle(b.title); setEditCategory(b.category); setEditRawCode(b.rawCode); }}>Edit
-)}
-))}
-{/* TERMINAL ACTIVITY CONSOLE LOGGER */}
-<div style={{ background: '#1e1e1e', color: '#00ff00', padding: '12px', marginTop: '15px', borderRadius: '6px', fontFamily: 'monospace' }}>
-Output Terminal Logger Feed:
-<div style={{ maxH: '120px', overflowY: 'auto', fontSize: '12px', marginTop: '5px' }}>
-{logs.map(l => [{l.timestamp}] {l.type.toUpperCase()}: {l.text})}
-);
-function handleInstantInject(e) {
-e.preventDefault();
-const result = processAndValidateBookmarklet(scratchpadCode);
-if (result.isValid) handleExecute(result.cleanCode);
-}
-}
-function SandboxView({ currentUrl, appendToConsole }) {
-const [val, setVal] = useState('');
-const [checked, setChecked] = useState(false);
-return (
-<div style={{ background: '#e9ecef', padding: '15px', borderRadius: '6px', marginTop: '10px' }}>
-🛝 Playground Viewport Workspace
-<p style={{ fontSize: '11px' }}>Context URL: {currentUrl}
-<input id="email-field" placeholder="Target Input Field ID: 'email-field'" value={val} onChange={e => setVal(e.target.value)} style={{ width: '100%', marginBottom: '5px' }} />
-<input type="checkbox" className="agree-checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} /> Checkbox Class: 'agree-checkbox'
-<div className="stock-status" style={{ background: '#fff', padding: '8px', marginTop: '5px', fontWeight: 'bold' }}>Temporarily Unavailable
-<button onClick={() => { appendToConsole('log', 'Simulated execution trigger submitted.'); alert(Email: ${val}, Checked: ${checked}); }} style={{ marginTop: '5px' }}>Submit Container Form
-
-);
-}
-// Add this entry inside your UA_PROFILES object to support iPad structures:
-IPAD_SAFARI: { 
-  label: "🍏 iPad kubu's Tablet", 
-  string: "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1" 
+          <section style={{ ...panelStyle, background: "#1e1e1e", color: "#00ff00", fontFamily: "monospace" }}>
+            <h2>Activity console</h2>
+            <div style={{ maxHeight: 180, overflowY: "auto" }}>
+              {logs.map((entry) => (
+                <p key={entry.id}>
+                  [{entry.timestamp}] {entry.type.toUpperCase()}: {entry.text}
+                </p>
+              ))}
+              {logs.length === 0 && <p>Waiting for browser events…</p>}
+            </div>
+          </section>
+        </section>
+      </div>
+      <p><small>Current page: {currentUrl}</small></p>
+    </main>
+  );
 }
