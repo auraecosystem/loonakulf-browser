@@ -1,6 +1,29 @@
-"scripts": {
-  "start": "react-scripts start",
-  "build": "react-scripts build",
-  "lint": "eslint src/**/*.js",
-  "format": "prettier --write src/**/*.js"
+{
+  "name": "shared-react-ui",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "dexie": "^3.2.4",
+    "dexie-react-hooks": "^1.1.6"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.34.1",
+    "eslint-plugin-react-hooks": "^4.6.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "lint": "eslint src/**/*.js",
+    "format": "prettier --write src/**/*.js"
+  },
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini"],
+    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+  }
 }
