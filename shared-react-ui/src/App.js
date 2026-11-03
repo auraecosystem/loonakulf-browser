@@ -1,263 +1,179 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
-import { processAndValidateBookmarklet } from './parser';
+import { processAndValidateBookmarklet, auditScriptSecurityRisks } from './parser';
+
+const UA_PROFILES = {
+  DESKTOP_CHROME: { label: "🖥️ Desktop Chrome", string: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" },
+  IPHONE_CHROME: { label: "📱 iPhone Chrome (iOS 27)", string: "Mozilla/5.0 (iPhone; CPU iPhone OS 27_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1" },
+  IPHONE_SAFARI: { label: "🍏 iPhone Safari", string: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1" }
+};
 
 export default function App() {
   const [currentUrl, setCurrentUrl] = useState('https://example.com');
   const [inputUrl, setInputUrl] = useState('https://example.com');
-  const editInputStyle = { padding: '6px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '13px' };
-const actionBtnStyle = { padding: '5px 10px', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' };
+  const [activeUaKey, setActiveUaKey] = useState('DESKTOP_CHROME');
+  const [logs, setLogs] = useState([]);
+  
+  // Storage Forms State
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('General');
+  const [rawCode, setRawCode] = useState('');
+  const [validationError, setValidationError] = useState(null);
+  
+  // Filters & Editing States
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editRawCode, setEditRawCode] = useState('');
+  const [editError, setEditError] = useState(null);
+  const [scratchpadCode, setScratchpadCode] = useState('');
 
-  // Listen for messages from Native Shells updating the current URL when clicking a link
+  // Proxy States
+  const [proxyIp, setProxyIp] = useState('');
+  const [proxyPort, setProxyPort] = useState('');
+  const [isProxyActive, setIsProxyActive] = useState(false);
+
+  const bookmarklets = useLiveQuery(() => db.bookmarklets.toArray()) || [];
+
   useEffect(() => {
-    const handleNativeNavigationEvent = (event) => {
-      // Handle Electron/Web messages
-      if (event.data && event.data.type === 'NAVIGATED') {
-        setCurrentUrl(event.data.url);
-        setInputUrl(event.data.url);
-      }
+    window.updateBrowserAddressBar = (url) => { setCurrentUrl(url); setInputUrl(url); };
+    const handleNativeLogs = (e) => {
+      if (e.data && e.data.type === 'NATIVE_CONSOLE_LOG') appendToConsole(e.data.logType, e.data.message);
     };
-    window.addEventListener('message', handleNativeNavigationEvent);
-    
-    // Global listener window callback for native platforms (PyQt/Swift)
-    window.updateBrowserAddressBar = (url) => {
-      setCurrentUrl(url);
-      setInputUrl(url);
-    };
-
-    return () => window.removeEventListener('message', handleNativeNavigationEvent);
+    window.addEventListener('message', handleNativeLogs);
+    return () => window.removeEventListener('message', handleNativeLogs);
   }, []);
 
-  // Universal Navigation Dispatcher
-  const sendNavAction = (action, targetUrl = null) => {
-    const payload = { type: 'BROWSER_ACTION', action, url: targetUrl };
-    
-    if (window.webkit?.messageHandlers?.browserControlBridge) {
-      window.webkit.messageHandlers.browserControlBridge.postMessage(payload);
-    } else if (window.browserAPI?.sendNavAction) {
-      window.browserAPI.sendNavAction(payload);
-    } else if (window.pyqtNavBridge) {
-      window.pyqtNavBridge.navigate(action, targetUrl || '');
+  const appendToConsole = (type, message) => {
+    setLogs(prev => [{ id: Math.random(), timestamp: new Date().toLocaleTimeString(), type, text: String(message) }, ...prev].slice(0, 50));
+  };
+
+  const handleExecute = (code) => {
+    const securityAudit = auditScriptSecurityRisks(code);
+    if (securityAudit.isHighRisk && !window.confirm(`🛡️ SECURITY SHIELD WARNING:\n\n${securityAudit.warnings.join("\n\n")}\n\nRun script anyway?`)) return;
+
+    if (window.webkit?.messageHandlers?.bookmarkletBridge) {
+      window.webkit.messageHandlers.bookmarkletBridge.postMessage(code);
+    } else if (window.browserAPI?.runBookmarklet) {
+      window.browserAPI.runBookmarklet(code);
+    } else if (window.pyqtBridge) {
+      window.pyqtBridge.execute(code);
     } else {
-      // Local testing mode fallback toggles the active mockup frame
-      if (action === 'GOTO' && targetUrl) setCurrentUrl(targetUrl);
+      appendToConsole('info', `Simulated local execution of clean script.`);
     }
   };
 
-  const handleGo = (e) => {
-    e.preventDefault();
-    let url = inputUrl.trim();
-    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    setInputUrl(url);
-    sendNavAction('GOTO', url);
+  const sendNavAction = (action, targetUrl = null) => {
+    const payload = { type: 'BROWSER_ACTION', action, url: targetUrl };
+    if (window.browserAPI?.sendNavAction) window.browserAPI.sendNavAction(payload);
+    if (action === 'GOTO' && targetUrl) { setCurrentUrl(targetUrl); setInputUrl(targetUrl); }
   };
 
-  // ... (Keep form handlers and Bookmarklet database states from your previous step)
+  const handleUaChange = (key) => {
+    setActiveUaKey(key);
+    if (window.browserAPI?.setUserAgent) window.browserAPI.setUserAgent({ type: 'SET_USER_AGENT', uaString: UA_PROFILES[key].string });
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    const result = processAndValidateBookmarklet(rawCode);
+    if (!result.isValid) return setValidationError(result.error);
+    await db.bookmarklets.add({ title, category, rawCode, cleanCode: result.cleanCode });
+    setTitle(''); setRawCode(''); setValidationError(null);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    const result = processAndValidateBookmarklet(editRawCode);
+    if (!result.isValid) return setEditError(result.error);
+    await db.bookmarklets.update(editingId, { title: editTitle, category: editCategory, rawCode: editRawCode, cleanCode: result.cleanCode });
+    setEditingId(null);
+  };
+
+  const handleExport = async () => {
+    const records = await db.bookmarklets.toArray();
+    const blob = new Blob([JSON.stringify({ version: 1, data: records }, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `backup.json`; link.click();
+  };
+
+  const handleImport = (e) => {
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const parsed = JSON.parse(evt.target.result);
+      for (const item of parsed.data) {
+        await db.bookmarklets.add({ title: item.title, category: item.category, rawCode: item.rawCode, cleanCode: item.cleanCode });
+      }
+    };
+    reader.readAsText(e.target.files[0]);
+  };
+
+  const handleClearCache = () => {
+    if (window.browserAPI?.clearCacheData) window.browserAPI.clearCacheData();
+  };
+
+  const handleProxySubmit = (e) => {
+    e.preventDefault();
+    if (window.browserAPI?.setProxyConfig) {
+      window.browserAPI.setProxyConfig({ enabled: true, rules: `http=${proxyIp}:${proxyPort};https=${proxyIp}:${proxyPort}` });
+      setIsProxyActive(true);
+    }
+  };
+
+  const filtered = bookmarklets.filter(b => (selectedCategory === 'ALL' || b.category === selectedCategory) && b.title.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: '20px', maxWidth: '900px', margin: '0 auto', background: '#fff', minHeight: '100vh' }}>
-      
-      {/* 🌐 Fully Functional Synchronized Navigation Toolbar Bar */}
-      <div style={{ display: 'flex', gap: '8px', background: '#e9ecef', padding: '10px', borderRadius: '8px', marginBottom: '25px', alignItems: 'center' }}>
-        <button onClick={() => sendNavAction('BACK')} style={navBtnStyle}>◀ Back</button>
-        <button onClick={() => sendNavAction('FORWARD')} style={navBtnStyle}>Forward ▶</button>
-        <button onClick={() => sendNavAction('RELOAD')} style={navBtnStyle}>🔄 Reload</button>
-        
-        <form onSubmit={handleGo} style={{ flexGrow: 1, display: 'flex', gap: '6px' }}>
-          <input 
-            type="text" 
-            value={inputUrl} 
-            onChange={(e) => setInputUrl(e.target.value)} 
-            style={{ flexGrow: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ced4da' }} 
-          />
-          <button type="submit" style={{ padding: '8px 16px', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>Go</button>
-        </form>
+    <div style={{ fontFamily: 'sans-serif', padding: '20px', maxWidth: '1000px', margin: '0 auto', background: '#f8f9fa' }}>
+      {/* TOOLBAR */}
+      <div style={{ display: 'flex', gap: '8px', background: '#e9ecef', padding: '10px', borderRadius: '8px', marginBottom: '15px', alignItems: 'center' }}>
+        <button onClick={() => sendNavAction('BACK')} style={{ padding: '6px' }}>◀</button>
+        <button onClick={() => sendNavAction('FORWARD')} style={{ padding: '6px' }}>▶</button>
+        <button onClick={() => sendNavAction('RELOAD')} style={{ padding: '6px' }}>🔄</button>
+        <input style={{ flexGrow: 1, padding: '6px' }} value={inputUrl} onChange={e => setInputUrl(e.target.value)} />
+        <button onClick={() => sendNavAction('GOTO', inputUrl)} style={{ padding: '6px 12px', background: '#007bff', color: '#fff' }}>Go</button>
+        <select value={activeUaKey} onChange={e => handleUaChange(e.target.value)} style={{ padding: '6px' }}>
+          {Object.keys(UA_PROFILES).map(k => <option key={k} value={k}>{UA_PROFILES[k].label}</option>)}
+        </select>
       </div>
 
-      {/* Grid container to organize script inputs side by side with the playground */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         <div>
-           {/* Paste your Add New Script Form and Stored Library JSX components here */}
-        </div>
-        
-        {/* Sandbox target container frame placement */}
-        <div style={{ borderLeft: '2px dashed #ccc', paddingLeft: '20px' }}>
-           <SandboxTestingEnvironment currentUrl={currentUrl} onPageChange={(url) => { setCurrentUrl(url); setInputUrl(url); }} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const navBtnStyle = { padding: '8px 12px', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer' };
-function SandboxTestingEnvironment({ currentUrl, onPageChange }) {
-  const [stockCount, setStockCount] = useState(0);
-  const [isChecked, setIsChecked] = useState(false);
-  const [emailText, setEmailText] = useState('');
-
-  // Automatically reset mock layout properties when navigating away
-  useEffect(() => {
-     setStockCount(0);
-     setIsChecked(false);
-     setEmailText('');
-  }, [currentUrl]);
-
-  return (
-    <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #dee2e6' }}>
-      <h3 style={{ marginTop: 0, color: '#495057' }}>🛝 Local Mock Target Page Playground</h3>
-      <p style={{ fontSize: '12px', color: '#6c757d' }}>Mock Active URL Context: <code style={{ background: '#eee', padding: '2px 4px' }}>{currentUrl}</code></p>
-      
-      <div id="mock-webpage-viewport" style={{ background: '#fff', padding: '20px', borderRadius: '6px', border: '1px solid #ced4da', minHeight: '300px' }}>
-        
-        {/* Element 1: Form Auto Fill targets */}
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 'bold' }}>Target Input (ID: "email-field")</label>
-          <input 
-            type="email" 
-            id="email-field" 
-            value={emailText} 
-            onChange={(e) => setEmailText(e.target.value)}
-            placeholder="Waiting for script filling..." 
-            style={{ width: '100%', padding: '6px', boxSizing: 'border-box' }}
-          />
-        </div>
-
-        {/* Element 2: Agreement Checkbox target */}
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold' }}>
-            <input 
-              type="checkbox" 
-              className="agree-checkbox" 
-              checked={isChecked}
-              onChange={(e) => setIsChecked(e.target.checked)}
-            />
-            Target Checkbox (Class: "agree-checkbox")
-          </label>
-        </div>
-
-        {/* Element 3: Dynamic Stock tracker logic target */}
-        <div style={{ background: '#fff3cd', padding: '12px', borderRadius: '4px', border: '1px solid #ffeeba', marginBottom: '15px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Stock Target (Class: "stock-status"):</span>
-          <div className="stock-status" style={{ fontSize: '18px', fontWeight: 'bold', color: stockCount >= 3 ? 'green' : 'red', marginTop: '4px' }}>
-            {stockCount >= 3 ? '✅ In Stock - Order Now!' : 'Temporarily Unavailable'}
+          {/* SYNC & CACHE CONTROL */}
+          <div style={{ background: '#fff', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd', display: 'flex', gap: '10px' }}>
+            <button onClick={handleExport}>📤 Export</button>
+            <label style={{ cursor: 'pointer' }}>📥 Import <input type="file" onChange={handleImport} style={{ display: 'none' }} /></label>
+            <button onClick={handleClearCache} style={{ background: '#dc3545', color: '#fff' }}>🗑️ Clear Cache</button>
           </div>
-          <button 
-            onClick={() => setStockCount(prev => prev + 1)}
-            style={{ marginTop: '8px', padding: '4px 8px', fontSize: '11px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-          >
-            Simulate Automation Page Reload Counter (+1)
-          </button>
+
+          {/* PROXY PANEL */}
+          <form onSubmit={handleProxySubmit} style={{ background: '#fff', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd', display: 'flex', gap: '5px' }}>
+            <input placeholder="Proxy IP" value={proxyIp} onChange={e => setProxyIp(e.target.value)} style={{ width: '60%' }} />
+            <input placeholder="Port" value={proxyPort} onChange={e => setProxyPort(e.target.value)} style={{ width: '20%' }} />
+            <button type="submit" disabled={isProxyActive}>Connect</button>
+            {isProxyActive && <button type="button" onClick={() => { window.browserAPI.setProxyConfig({ enabled: false }); setIsProxyActive(false); }}>X</button>}
+          </form>
+
+          {/* SCRATCHPAD QUICK INJECTOR */}
+          <div style={{ background: '#fff', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' }}>
+            <input placeholder="Quick script payload..." value={scratchpadCode} onChange={e => setScratchpadCode(e.target.value)} style={{ width: '75%', padding: '6px' }} />
+            <button onClick={handleInstantInject} style={{ width: '20%', padding: '6px', marginLeft: '5px' }}>Inject</button>
+          </div>
+
+          {/* INTAKE CREATION FORM */}
+          <form onSubmit={handleSave} style={{ background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ddd', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <h3>Create Script</h3>
+            <input placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} required />
+            <input placeholder="Category" value={category} onChange={e => setCategory(e.target.value)} />
+            <textarea placeholder="Paste payload raw code..." value={rawCode} onChange={e => setRawCode(e.target.value)} required rows={4} />
+            {validationError && <p style={{ color: 'red' }}>{validationError}</p>}
+            <button type="submit">Save Bookmarklet</button>
+          </form>
         </div>
 
-        <div style={{ textAlign: 'right' }}>
-           <button 
-             type="submit" 
-             onClick={() => alert(`Submitted parameters:\nEmail: ${emailText}\nChecked: ${isChecked}`)}
-             style={{ padding: '6px 12px', background: '#17a2b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-           >
-             Submit Form
-           </button>
-        </div>
-
-      </div>
-      <small style={{ color: '#6c757d', marginTop: '10px', display: 'block', lineHeight: '1.4' }}>
-        💡 <strong>How to test:</strong> Paste code options into the manager input field on the left. Click "Run" next to your processed bookmarklet. It will execute immediately on this target panel!
-      </small>
-    </div>
-  );
-}
-
-const [editingId, setEditingId] = useState(null);
-const [editTitle, setEditTitle] = useState('');
-const [editCategory, setEditCategory] = useState('');
-const [editRawCode, setEditRawCode] = useState('');
-const [editError, setEditError] = useState(null);
-
-// Trigger edit mode for a specific script item card
-const startEditing = (bml) => {
-  setEditingId(bml.id);
-  setEditTitle(bml.title);
-  setEditCategory(bml.category);
-  setEditRawCode(bml.rawCode);
-  setEditError(null);
-};
-
-const handleUpdateBookmarklet = async (e) => {
-  e.preventDefault();
-  setEditError(null);
-
-  // Send the edited code through your single-line validation engine
-  const parsingResult = processAndValidateBookmarklet(editRawCode);
-
-  if (!parsingResult.isValid) {
-    setEditError(parsingResult.error);
-    return;
-  }
-
-  try {
-    // Modify record directly inside local IndexedDB storage
-    await db.bookmarklets.update(editingId, {
-      title: editTitle,
-      category: editCategory,
-      rawCode: editRawCode,
-      cleanCode: parsingResult.cleanCode
-    });
-    
-    // Clear out edit panel state configurations
-    setEditingId(null);
-  } catch (err) {
-    setEditError("Failed to update database workspace fields.");
-  }
-};
-// Predefined User Agent Profiles (including your parsed iOS 27 string)
-const UA_PROFILES = {
-  DESKTOP_CHROME: {
-    label: "🖥️ Desktop Chrome",
-    string: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-  },
-  IPHONE_CHROME: {
-    label: "📱 iPhone Chrome (iOS 27)",
-    string: "Mozilla/5.0 (iPhone; CPU iPhone OS 27_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1"
-  },
-  IPHONE_SAFARI: {
-    label: "🍏 iPhone Safari",
-    string: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
-  },
-  ANDROID_CHROME: {
-    label: "🤖 Android Chrome",
-    string: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-  }
-};
-
-// Inside your main App component function:
-const [activeUaKey, setActiveUaKey] = useState('DESKTOP_CHROME');
-
-const handleUaChange = (uaKey) => {
-  setActiveUaKey(uaKey);
-  const selectedAgentString = UA_PROFILES[uaKey].string;
-  const payload = { type: 'SET_USER_AGENT', uaString: selectedAgentString };
-  
-  if (window.browserAPI?.setUserAgent) {
-    window.browserAPI.setUserAgent(payload); // Dispatch to Electron
-  } else if (window.pyqtAgentBridge) {
-    window.pyqtAgentBridge.switchProfile(selectedAgentString); // Dispatch to PyQt
-  } else {
-    console.log(`Mock Standalone UA Swapped to: ${uaKey}`);
-  }
-};
-
-{/* 🎛️ User Agent Profile Dropdown Selector Selector */}
-<div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', paddingLeft: '8px' }}>
-  <span style={{ fontSize: '12px', color: '#666', marginRight: '5px' }}>Profile:</span>
-  <select 
-    value={activeUaKey} 
-    onChange={(e) => handleUaChange(e.target.value)}
-    style={{ padding: '6px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', outline: 'none' }}
-  >
-    {Object.keys(UA_PROFILES).map((key) => (
-      <option key={key} value={key}>
-        {UA_PROFILES[key].label}
-      </option>
-    ))}
-  </select>
-</div>
+        {/* MOCK WORKSPACE PLAYGROUND SANDBOX */}
+        <div>
+          <input placeholder="🔍 Filter local UI..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '10px' }} />
+          <div style={{ maxH: '400px', overflowY: 'auto' }}>
+            {filtered.map(b => (
