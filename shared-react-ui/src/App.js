@@ -109,7 +109,7 @@ export default function App() {
       if (typeof removeLogListener === "function") removeLogListener();
       delete window.updateBrowserAddressBar;
     };
-  }, []);
+  }, [appendToConsole]);
 
   const handleExecute = (code) => {
     const audit = auditScriptSecurityRisks(code);
