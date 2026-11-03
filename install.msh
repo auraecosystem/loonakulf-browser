@@ -1,0 +1,28 @@
+#!/bin/bash
+echo "🚀 [Loonakulf Browser] Starting Workspace Dependency Compilation Pipeline..."
+
+if [ -d "shared-react-ui" ]; then
+    echo "📦 [1/3] Processing Web Dashboard Dependencies..."
+    cd shared-react-ui && npm install && cd ..
+else
+    echo "❌ Error: Missing /shared-react-ui resource mapping targets."
+    exit 1
+fi
+
+if [ -d "electron-shell" ]; then
+    echo "📦 [2/3] Processing Chromium Window Desktop Wrapper Dependencies..."
+    cd electron-shell && npm install && cd ..
+else
+    echo "⚠️ Warning: Missing /electron-shell target dependencies path."
+fi
+
+if [ -d "pyqt-shell" ]; then
+    echo "📦 [3/3] Locating Python Application Component Packages..."
+    if command -v pip &> /dev/null; then
+        pip install PyQt5 PyQtWebEngine --quiet
+    else
+        echo "⚠️ Note: 'pip' utility binary missing. Please configure Python system contexts."
+    fi
+fi
+
+echo "✅ [Loonakulf Browser] Workspace Installation Complete! Execute macro 'run.ash' to start developer testing."
