@@ -3,7 +3,7 @@ React will serve as your core user interface (the web app), while Electron (Desk
 
 >
 > 
-The Architecture Blueprint
+# The Architecture Blueprint
 >
                      ┌────────────────────────────────┐
                      │     React Core Web App         │
@@ -16,14 +16,16 @@ The Architecture Blueprint
 │  Electron Shell │         │   Swift Shell   │         │   PyQt Shell    │
 │  (Mac/Windows)  │         │   (iOS Mobile)  │         │ (Desktop/Linux) │
 └─────────────────┘         └─────────────────┘         └─────────────────┘
+
+
 1. The Shared Core (React): You build one web app using React. It renders the browser's address bar, tabs, and the user's saved bookmarklet database list.
 2. The Native Containers (Swift, Electron, PyQt): Each platform loads your React app into a specialized web container view (WebView). When a user clicks a bookmarklet in your React UI, the React app sends a text message to the native wrapper, and the native wrapper injects the JavaScript into the active webpage.
 
-Step-by-Step Implementation Guide
+# Step-by-Step Implementation Guide
 
 Here is the exact boilerplate code needed for each piece of your stack to pass and execute bookmarklet strings.
 
-1. The Mobile Container (Swift for iOS)
+1. # The Mobile Container (Swift for iOS)
 
 In Swift, you use WKWebView to render your browser tabs and evaluateJavaScript to fire the bookmarklet string into the active tabs
 
@@ -65,7 +67,7 @@ Use code with caution.
 2. The Desktop Container (Electron)
 
 In Electron, you use a preload.js script to safely bridge your React UI code to the desktop main process using contextBridge.
-javascript
+```javascript
 // preload.js (The Secure Bridge)
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -106,11 +108,11 @@ class BookmarkletBrowser(QMainWindow):
     def js_callback(self, result):
         print("Bookmarklet executed. Result:", result)
 Use code with caution.
-
+```
 4. The Unified Frontend Trigger (React)
 
 Inside your shared React web application, you write a unified handler function that detects which platform container the user is currently on and routes the message correctly.
-javascript
+```javascript
 import React from 'react';
 
 export function BookmarkletList({ savedBookmarklets, activeTabUrl }) {
@@ -143,10 +145,12 @@ export function BookmarkletList({ savedBookmarklets, activeTabUrl }) {
   );
 }
 Use code with caution.
-
+```
 Critical Next Steps for Success
 
 1. Keep App Logic in React: Build your storage mechanics (saving script names, grouping into folders, editing text) strictly in React. Keep your native wrappers (Swift, Electron, PyQt) dumb—they should only listen for an execution command and execute it.
+
+
 2. Use Capacitor or React Native (Optional Mobile Path): If writing pure native Swift for iOS and Kotlin for Android feels too heavy, look into CapacitorJS. It lets you wrap your React application into iOS and Android apps seamlessly with native webview hooks already pre-built.
 To start assembling your project folder, tell me:
 • Which environment do you want to build and test first? (e.g., setting up the React + Electron desktop shell, or launching the React + Swift mobile configuration?)
