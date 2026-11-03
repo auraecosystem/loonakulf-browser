@@ -209,3 +209,55 @@ const handleUpdateBookmarklet = async (e) => {
     setEditError("Failed to update database workspace fields.");
   }
 };
+// Predefined User Agent Profiles (including your parsed iOS 27 string)
+const UA_PROFILES = {
+  DESKTOP_CHROME: {
+    label: "🖥️ Desktop Chrome",
+    string: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+  },
+  IPHONE_CHROME: {
+    label: "📱 iPhone Chrome (iOS 27)",
+    string: "Mozilla/5.0 (iPhone; CPU iPhone OS 27_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1"
+  },
+  IPHONE_SAFARI: {
+    label: "🍏 iPhone Safari",
+    string: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
+  },
+  ANDROID_CHROME: {
+    label: "🤖 Android Chrome",
+    string: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+  }
+};
+
+// Inside your main App component function:
+const [activeUaKey, setActiveUaKey] = useState('DESKTOP_CHROME');
+
+const handleUaChange = (uaKey) => {
+  setActiveUaKey(uaKey);
+  const selectedAgentString = UA_PROFILES[uaKey].string;
+  const payload = { type: 'SET_USER_AGENT', uaString: selectedAgentString };
+  
+  if (window.browserAPI?.setUserAgent) {
+    window.browserAPI.setUserAgent(payload); // Dispatch to Electron
+  } else if (window.pyqtAgentBridge) {
+    window.pyqtAgentBridge.switchProfile(selectedAgentString); // Dispatch to PyQt
+  } else {
+    console.log(`Mock Standalone UA Swapped to: ${uaKey}`);
+  }
+};
+
+{/* 🎛️ User Agent Profile Dropdown Selector Selector */}
+<div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', paddingLeft: '8px' }}>
+  <span style={{ fontSize: '12px', color: '#666', marginRight: '5px' }}>Profile:</span>
+  <select 
+    value={activeUaKey} 
+    onChange={(e) => handleUaChange(e.target.value)}
+    style={{ padding: '6px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', outline: 'none' }}
+  >
+    {Object.keys(UA_PROFILES).map((key) => (
+      <option key={key} value={key}>
+        {UA_PROFILES[key].label}
+      </option>
+    ))}
+  </select>
+</div>
