@@ -20,3 +20,20 @@ loonakulf-browser/
 ├── install.msh               # Automated Repository Setup Script
 └── run.ash                   # Concurrent Workspace Process Launcher Script
 ```
+
+## Platform and User-Agent detection
+
+The shared UI includes a lightweight User-Agent parser and a separate runtime
+capability detector. See
+[`shared-react-ui/docs/user-agent-detection.md`](shared-react-ui/docs/user-agent-detection.md)
+for the normalized fields, limitations and usage example.
+
+Run the parser regression suite from `shared-react-ui/`:
+
+```bash
+npm run test:platform
+```
+
+The repository does not currently include a server/API application, so the
+proposed `/api/v1/ua` endpoint remains an integration point for a future
+backend rather than an unconnected route.
