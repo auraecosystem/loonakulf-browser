@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
 import {
@@ -70,7 +70,7 @@ export default function App() {
     []
   );
 
-  const appendToConsole = (type, message) => {
+  const appendToConsole = useCallback((type, message) => {
     setLogs((previous) =>
       [
         {
@@ -82,7 +82,7 @@ export default function App() {
         ...previous,
       ].slice(0, 50)
     );
-  };
+  }, []);
 
   useEffect(() => {
     const handleAddress = (url) => {
