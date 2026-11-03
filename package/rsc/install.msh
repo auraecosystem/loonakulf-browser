@@ -1,0 +1,38 @@
+cd shared-react-ui 
+npm install dexie
+pyinstaller --noconsole --onefile main.py
+cd ../pyqt-shell
+pip install pyinstaller
+#!/bin/bash
+# install.msh - Setup script pipeline execution module
+
+echo "🚀 [Loonakulf Browser] Starting Workspace Dependency Compilation Pipeline..."
+
+# 1. Compile Core React Shared Interface UI Modules
+if [ -d "shared-react-ui" ]; then
+    echo "📦 [1/3] Processing Web Dashboard Dependencies..."
+    cd shared-react-ui && npm install && cd ..
+else
+    echo "❌ Error: Missing /shared-react-ui resource mapping targets."
+    exit 1
+fi
+
+# 2. Compile Electron Native Execution Assets
+if [ -d "electron-shell" ]; then
+    echo "📦 [2/3] Processing Chromium Window Desktop Wrapper Dependencies..."
+    cd electron-shell && npm install && cd ..
+else
+    echo "⚠️ Warning: Missing /electron-shell target dependencies path."
+fi
+
+# 3. Compile Alternative PyQt Environments
+if [ -d "pyqt-shell" ]; then
+    echo "📦 [3/3] Locating Python Application Component Packages..."
+    if command -v pip &> /dev/null; then
+        pip install PyQt5 PyQtWebEngine --quiet
+    else
+        echo "⚠️ Note: 'pip' utility binary missing. Please configure Python system contexts."
+    fi
+fi
+
+echo "✅ [Loonakulf Browser] Workspace Installation Complete! Execute macro 'run.ash' to start developer testing."
