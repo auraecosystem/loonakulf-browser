@@ -20,10 +20,19 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "lint": "eslint src/**/*.js",
-    "format": "prettier --write src/**/*.js"
+    "format": "prettier --write src/**/*.js",
+    "test:platform": "node --test tests/platform/*.test.cjs"
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini"],
-    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }
