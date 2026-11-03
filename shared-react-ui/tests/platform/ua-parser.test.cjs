@@ -1,32 +1,33 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
-const { transformSync } = require("@babel/core");
+const path = require("node:path");
+const vm = require("node:vm");
 
 const source = readFileSync(
-  require("node:path").join(__dirname, "../../src/platform/ua-parser.js"),
+  path.join(__dirname, "../../src/platform/ua-parser.js"),
   "utf8"
+).replace(/^export function /gm, "function ");
+const sandbox = { module: { exports: {} } };
+vm.runInNewContext(
+  source + "\nmodule.exports = { parseUserAgent, detectCapabilities };",
+  sandbox
 );
-const transformed = transformSync(source, {
-  presets: [["@babel/preset-env", { targets: { node: "current" } }]],
-}).code;
-const module = { exports: {} };
-new Function("module", "exports", transformed)(module, module.exports);
-const { parseUserAgent, detectCapabilities } = module.exports;
+const { parseUserAgent, detectCapabilities } = sandbox.module.exports;
 
 const IPHONE_CHROME =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 27_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1";
 
 test("identifies Chrome on iPhone while retaining WebKit engine", () => {
   const result = parseUserAgent(IPHONE_CHROME);
-  assert.deepEqual(result.browser, {
+  assert.deepEqual({ ...result.browser }, {
     name: "Chrome Mobile iOS",
     version: "155.0.8059.37",
     family: "Chrome Mobile iOS",
   });
-  assert.deepEqual(result.engine, { name: "WebKit", version: "605.1.15" });
-  assert.deepEqual(result.os, { name: "iOS", version: "27.0.0" });
-  assert.deepEqual(result.device, {
+  assert.deepEqual({ ...result.engine }, { name: "WebKit", version: "605.1.15" });
+  assert.deepEqual({ ...result.os }, { name: "iOS", version: "27.0.0" });
+  assert.deepEqual({ ...result.device }, {
     vendor: "Apple",
     model: "iPhone",
     type: "mobile",
@@ -55,7 +56,7 @@ test("capabilities are reported separately from UA identity", () => {
   const result = detectCapabilities({
     navigator: { maxTouchPoints: 5, onLine: true, serviceWorker: {} },
   });
-  assert.deepEqual(result, {
+  assert.deepEqual({ ...result }, {
     touch: true,
     online: true,
     serviceWorker: true,
