@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const { isValidUserAgent } = require('./platform');
 
 let mainWindow;
 let targetWebpageView; 
@@ -46,6 +47,10 @@ ipcMain.on('native-browser-control', (e, p) => {
 });
 
 ipcMain.on('native-user-agent-toggle', (e, p) => {
+  if (!targetWebpageView || !isValidUserAgent(p && p.uaString)) {
+    console.warn('[UA Switcher] Ignored invalid User-Agent payload.');
+    return;
+  }
   targetWebpageView.webContents.setUserAgent(p.uaString);
   targetWebpageView.webContents.reload();
 });
