@@ -17,3 +17,12 @@ targetWebpageView.webContents.on('did-navigate', (event, url) => {
 targetWebpageView.webContents.on('did-navigate-in-page', (event, url) => {
     mainWindow.webContents.send('target-url-changed', url);
 });
+ipcMain.on('native-user-agent-toggle', (event, payload) => {
+  if (!targetWebpageView || !payload.uaString) return;
+  
+  // Set the dynamic custom header string immediately 
+  targetWebpageView.webContents.setUserAgent(payload.uaString);
+  targetWebpageView.webContents.reload();
+  
+  console.log(`[Electron Engine] Swapped identity context string header parameters.`);
+});
