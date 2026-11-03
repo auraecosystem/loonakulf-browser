@@ -215,3 +215,8 @@ return (
 
 );
 }
+// Add this entry inside your UA_PROFILES object to support iPad structures:
+IPAD_SAFARI: { 
+  label: "🍏 iPad kubu's Tablet", 
+  string: "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1" 
+}
