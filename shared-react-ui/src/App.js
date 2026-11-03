@@ -175,5 +175,43 @@ export default function App() {
         {/* MOCK WORKSPACE PLAYGROUND SANDBOX */}
         <div>
           <input placeholder="🔍 Filter local UI..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '10px' }} />
-          <div style={{ maxH: '400px', overflowY: 'auto' }}>
-            {filtered.map(b => (
+          <div style={{ maxH: '400px', overflowY: 'auto' }}>{filtered.map(b => (<div key={b.id} style={{ background: '#fff', padding: '10px', borderRadius: '4px', border: '1px solid #eee', marginBottom: '8px' }}>{editingId === b.id ? (
+
+          <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+
+          <input value={editTitle} onChange={e => setEditTitle(e.target.value)} required />
+
+          <input value={editCategory} onChange={e => setEditCategory(e.target.value)} />
+
+          <textarea value={editRawCode} onChange={e => setEditRawCode(e.target.value)} required />
+          Update) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>{b.title} ({b.category})<button onClick={() => handleExecute(b.cleanCode)}>Run
+          <button onClick={() => { setEditingId(b.id); setEditTitle(b.title); setEditCategory(b.category); setEditRawCode(b.rawCode); }}>Edit
+)}
+))}
+{/* TERMINAL ACTIVITY CONSOLE LOGGER */}
+<div style={{ background: '#1e1e1e', color: '#00ff00', padding: '12px', marginTop: '15px', borderRadius: '6px', fontFamily: 'monospace' }}>
+Output Terminal Logger Feed:
+<div style={{ maxH: '120px', overflowY: 'auto', fontSize: '12px', marginTop: '5px' }}>
+{logs.map(l => [{l.timestamp}] {l.type.toUpperCase()}: {l.text})}
+);
+function handleInstantInject(e) {
+e.preventDefault();
+const result = processAndValidateBookmarklet(scratchpadCode);
+if (result.isValid) handleExecute(result.cleanCode);
+}
+}
+function SandboxView({ currentUrl, appendToConsole }) {
+const [val, setVal] = useState('');
+const [checked, setChecked] = useState(false);
+return (
+<div style={{ background: '#e9ecef', padding: '15px', borderRadius: '6px', marginTop: '10px' }}>
+🛝 Playground Viewport Workspace
+<p style={{ fontSize: '11px' }}>Context URL: {currentUrl}
+<input id="email-field" placeholder="Target Input Field ID: 'email-field'" value={val} onChange={e => setVal(e.target.value)} style={{ width: '100%', marginBottom: '5px' }} />
+<input type="checkbox" className="agree-checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} /> Checkbox Class: 'agree-checkbox'
+<div className="stock-status" style={{ background: '#fff', padding: '8px', marginTop: '5px', fontWeight: 'bold' }}>Temporarily Unavailable
+<button onClick={() => { appendToConsole('log', 'Simulated execution trigger submitted.'); alert(Email: ${val}, Checked: ${checked}); }} style={{ marginTop: '5px' }}>Submit Container Form
+
+);
+}
