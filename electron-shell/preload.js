@@ -1,10 +1,17 @@
-// electron-shell/preload.js additions
+const { contextBridge, ipcRenderer } = require('electron');
+
 contextBridge.exposeInMainWorld('browserAPI', {
-    runBookmarklet: (code) => ipcRenderer.send('execute-bookmarklet', code),
-    sendNavAction: (payload) => ipcRenderer.send('native-browser-control', payload)
+  runBookmarklet: (code) => ipcRenderer.send('execute-bookmarklet', code),
+  sendNavAction: (payload) => ipcRenderer.send('native-browser-control', payload),
+  setUserAgent: (payload) => ipcRenderer.send('native-user-agent-toggle', payload),
+  clearCacheData: () => ipcRenderer.send('native-clear-cache-data'),
+  setProxyConfig: (payload) => ipcRenderer.send('native-set-proxy-config', payload)
 });
 
-// Listener letting the frontend know when a browser tab changed URLs implicitly
 ipcRenderer.on('target-url-changed', (event, url) => {
-    window.postMessage({ type: 'NAVIGATED', url }, '*');
+  window.updateBrowserAddressBar?.(url);
+});
+
+ipcRenderer.on('runtime-console-log', (event, data) => {
+  window.postMessage({ type: 'NATIVE_CONSOLE_LOG', logType: data.type, message: data.message }, '*');
 });
