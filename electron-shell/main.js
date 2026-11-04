@@ -338,7 +338,7 @@ ipcMain.handle("lmlm:assist", async (event, payload) => {
         page_text: page.text || "",
         use_knowledge: payload.useKnowledge,
       }),
-    });
+    }, payload.multiAgent ? 150000 : 60000);
     return {
       ok: true,
       answer: result.answer,
