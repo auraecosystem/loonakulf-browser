@@ -65,9 +65,9 @@ Model output is displayed as text; it is never executed.
 - Do not expose this service directly to the public internet.
 - Multi-agent mode provides bounded text-only inference, not autonomous navigation,
   form submission, bookmarklet execution, or general-purpose tool delegation.
-- Production deployment still needs authenticated local IPC/service lifecycle,
-  rate limits, model-provider policy, privacy controls, and platform-specific
-  bridge implementations for PyQt and Swift.
+- The shared-token HTTP boundary is implemented; production packaging still needs
+  secure token provisioning/rotation, OS-level peer authentication, managed
+  service lifecycle, rate limits, provider policy, and PyQt/Swift bridges.
 
 
 ## Local knowledge and agent routing
@@ -81,7 +81,9 @@ The runtime includes an explicit-consent SQLite knowledge store.
 - API: `POST /v1/knowledge`, `GET /v1/knowledge/search?q=...`, and `DELETE /v1/knowledge/{document_id}`.
 
 
-**At-rest protection:** the initial SQLite store is local and uses restrictive filesystem permissions where supported, but it is not encrypted. Use full-disk encryption on the host and do not store highly sensitive material until application-level encryption and authenticated local IPC are implemented.
+**At-rest protection:** the initial SQLite store is local and uses restrictive filesystem permissions where supported, but it is not encrypted. Use full-disk encryption on the host and do not store highly sensitive material until application-level encryption is implemented. The local API now requires
+a shared bearer token, but that token is not a substitute for OS-level peer
+authentication or secure token provisioning.
 
 The agent coordinator exposes `POST /v1/agents/plan` for deterministic routing and `POST /v1/agents/execute` for opt-in inference. Multi-agent mode launches up to three allowlisted specialist requests (research, engineering, security, productivity) concurrently against the configured OpenAI-compatible provider, then runs a synthesis request. At least one specialist must succeed. Requests and outputs are bounded; specialist failures are reported without discarding successful results. This is model orchestration, not autonomous tool use: agents cannot browse, call tools, execute code, access files, or perform browser/OS actions. Electron keeps multi-agent mode opt-in and raises its request timeout for the extra inference round trips. Roles can use separate model IDs, provider endpoints, and credentials. Missing role settings fall back to the shared provider configuration.
 
