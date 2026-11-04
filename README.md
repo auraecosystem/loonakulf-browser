@@ -1,39 +1,53 @@
-# loonakulf-browser
-A bookmarklet browser 
+# Loonakulf Browser
 
-```bash
-loonakulf-browser/
-├── shared-react-ui/
+A shared React browser interface with platform-specific desktop and mobile shells.
+
+## Repository layout
+
+```text
+Loonakulf-browser/
+├── shared-react-ui/       # Shared browser interface and platform intelligence
 │   ├── src/
-│   │   ├── db.js             # IndexedDB Database Module (Dexie.js)
-│   │   ├── parser.js         # Single-line Formatter & Security Auditing Shield
-│   │   └── App.js            # Main React Dashboard and Communication Panel
-│   ├── .eslintrc.json        # ESLint Configuration File
-│   ├── .prettierrc           # Prettier Code Quality Rules
-│   └── package.json          # Frontend Dependecies & Script Shortcuts
-├── electron-shell/
-│   ├── main.js               # Main Electron Process (Chromium Window Layer)
-│   ├── preload.js            # Secure IPC JavaScript Communication Bridge
-│   └── package.json          # Electron Packaging Manifest
-├── pyqt-shell/
-│   └── main.py               # Native Python Web Container Framework
-├── install.msh               # Automated Repository Setup Script
-└── run.ash                   # Concurrent Workspace Process Launcher Script
+│   │   ├── App.js         # Browser UI and communication layer
+│   │   ├── index.js       # React application entry point
+│   │   └── platform/      # UA parsing and runtime capability detection
+│   ├── public/
+│   │   └── index.html     # React host document
+│   └── package.json
+├── electron-shell/        # Electron desktop container (macOS and Windows)
+│   ├── main.js
+│   ├── preload.js
+│   └── platform.js
+├── pyqt-shell/            # Python / Qt desktop container
+│   └── main.py
+├── swift-shell/           # Native iOS container
+│   └── BrowserApp/
+│       └── ViewController.swift
+├── docs/
+└── .github/workflows/
 ```
 
-## Platform and User-Agent detection
+## Architecture
 
-The shared UI includes a lightweight User-Agent parser and a separate runtime
-capability detector. See
-[`shared-react-ui/docs/user-agent-detection.md`](shared-react-ui/docs/user-agent-detection.md)
-for the normalized fields, limitations and usage example.
+The shared React application owns browser-facing UI and reusable workflows. Each native shell owns its platform lifecycle, embedded web view, navigation policy, and privileged operations. Shells should expose a narrow, versioned bridge; the UI must not infer native privileges from User-Agent strings.
 
-Run the parser regression suite from `shared-react-ui/`:
+See [the multi-shell architecture and implementation status](docs/multishell-architecture.md).
+
+## Platform intelligence
+
+The shared UI includes a lightweight User-Agent parser and a separate runtime capability detector. User-Agent and Client Hints are advisory diagnostics only; they must never be used for authentication or authorization. High-entropy Client Hints require explicit opt-in.
+
+Run the platform regression suite from `shared-react-ui/`:
 
 ```bash
 npm run test:platform
 ```
 
-The repository does not currently include a server/API application, so the
-proposed `/api/v1/ua` endpoint remains an integration point for a future
-backend rather than an unconnected route.
+Build the shared React application from the same directory:
+
+```bash
+npm ci
+npm run build
+```
+
+The repository does not currently include a backend/API application, so no standalone UA HTTP endpoint is exposed.
