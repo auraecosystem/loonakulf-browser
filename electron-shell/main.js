@@ -266,6 +266,34 @@ ipcMain.handle("lmlm:get-status", async (event) => {
   }
 });
 
+ipcMain.handle("lmlm:save-page", async (event) => {
+  const contents = getTargetWebContents(event);
+  if (!contents) return { ok: false, error: "Untrusted browser request." };
+  try {
+    const page = await contents.executeJavaScript(
+      "(() => ({ title: String(document.title || '').slice(0, 300), " +
+      "url: String(location.href || '').slice(0, 2048), " +
+      "text: String(document.body?.innerText || '').slice(0, 30000) }))()"
+    );
+    if (!page.text || !page.text.trim()) {
+      return { ok: false, error: "The active page has no readable text to save." };
+    }
+    const result = await requestLmlm("/v1/knowledge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        confirm_save: true,
+        title: page.title || "Untitled page",
+        source_url: page.url || "",
+        content: page.text,
+      }),
+    });
+    return { ok: true, id: result.id, title: result.title };
+  } catch (error) {
+    return { ok: false, error: error.message || "Could not save active page." };
+  }
+});
+
 ipcMain.handle("lmlm:assist", async (event, payload) => {
   const contents = getTargetWebContents(event);
   if (!contents || !payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -274,7 +302,8 @@ ipcMain.handle("lmlm:assist", async (event, payload) => {
   if (typeof payload.prompt !== "string" ||
       !payload.prompt.trim() ||
       payload.prompt.length > 4000 ||
-      typeof payload.includePageContext !== "boolean") {
+      typeof payload.includePageContext !== "boolean" ||
+      typeof payload.useKnowledge !== "boolean") {
     return { ok: false, error: "Invalid LMLM request payload." };
   }
 
@@ -300,6 +329,7 @@ ipcMain.handle("lmlm:assist", async (event, payload) => {
         page_title: page.title || "",
         page_url: page.url || "",
         page_text: page.text || "",
+        use_knowledge: payload.useKnowledge,
       }),
     });
     return { ok: true, answer: result.answer };
