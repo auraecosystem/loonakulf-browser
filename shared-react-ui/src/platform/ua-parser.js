@@ -150,7 +150,7 @@ function parseEngine(ua, browser, os) {
 function parseCPU(ua, hints) {
   if (typeof hints.architecture === "string" && hints.architecture) {
     const arch = hints.architecture.toLowerCase();
-    const normalized = /arm/.test(arch) ? "arm64" :
+    const normalized = /arm64/.test(arch) ? "arm64" : /arm/.test(arch) ? "arm" :
       /x86|ia32|i386/.test(arch) ? "x86" :
       /64/.test(arch) ? "x64" : arch;
     return { architecture: normalized, source: "client-hints" };
