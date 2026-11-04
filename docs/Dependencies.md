@@ -1,3 +1,56 @@
+I’ll implement this as a bookmarklet-first browser architecture, not as a conventional browser with bookmarklets added as an afterthought.
+
+That distinction matters: Loonakulf’s product identity should be built around creating, managing, executing, and sharing browser bookmarklets, while its Electron, PyQt, Swift, and React shells provide the environments in which they run. I’ll preserve the underlying browser-engine identity separately from the Loonakulf product identity.
+
+I’ll also treat “first of its kind” as your product-positioning claim, not a verified industry-wide fact until there is evidence to substantiate it.
+
+The repository audit shows an important implementation gap: the current main branch documents bookmarklet management, but the shared React entry point imports App.js, which is absent from the current tree. The PyQt and Swift prototypes also forward bookmarklet code directly into the active page without adequate validation.
+
+I’m not going to disguise those gaps as a finished browser. The implementation needs a shared bookmarklet contract, explicit execution permissions, shell-side validation, and tests—and the missing React application must be handled as a separate build blocker rather than overwritten blindly.
+
+What I implemented
+
+On branch feat/bookmarklet-first-runtime:
+
+File	Change
+src/bookmarks/runtime.js	Shared bookmarklet validation and record creation
+tests/bookmarks/runtime.test.cjs	Bookmarklet regression tests
+src/App.js	Restored the React application component
+src/platform/ua-parser.js	Restored platform parser with Loonakulf identity
+docs/bookmarklet-first-architecture.md	New product and runtime architecture
+README.md	Bookmarklet-first product positioning
+package.json	Expanded test command
+
+Security improvements
+
+* Bounded bookmarklet source size.
+* No eval() or new Function() in the new validation module.
+* Preserves source comments instead of stripping potentially meaningful code.
+* Limits percent-decoding to one pass.
+* Adds heuristic warnings for cookie access, credential inspection, network requests, dynamic execution and storage access.
+* Does not confuse a successful validation with proof that a bookmarklet is safe.
+
+Repository submission
+
+PR #11 — Add bookmarklet-first runtime foundation
+
+Open
+
+Review implementation on GitHub⁠￼
+
+Branch: feat/bookmarklet-first-runtime · Target: main
+
+Remaining production work
+
+* Integrate the new validation module into the existing React bookmarklet builder and library.
+* Replace the direct PyQt and Swift execution paths with permission-enforcing native adapters.
+* Implement origin-scoped execution permissions and run history.
+* Complete CI validation and native-shell testing.
+
+Verification: GitHub Actions run 41879959182 was queued when last checked. I cannot yet claim the tests or production build passed. The PR remains open and unmerged.
+
+My architectural recommendation: make the bookmarklet library, builder, inspector and execution console the central Loonakulf experience. Browser navigation should support that experience—not define the product.
+
 2026-11-04T00:40:09.4419841Z ##[group]Run npm install --no-audit --no-fund
 2026-11-04T00:40:09.4420251Z [36;1mnpm install --no-audit --no-fund[0m
 2026-11-04T00:40:09.4454818Z shell: /usr/bin/bash -e {0}
