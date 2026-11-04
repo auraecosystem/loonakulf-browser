@@ -21,6 +21,9 @@ export default function LmlmAssistant({ currentUrl }) {
   const [prompt, setPrompt] = useState("");
   const [includePage, setIncludePage] = useState(false);
   const [useKnowledge, setUseKnowledge] = useState(false);
+  const [multiAgent, setMultiAgent] = useState(false);
+  const [executionMode, setExecutionMode] = useState("single_model_inference");
+  const [agentResults, setAgentResults] = useState([]);
   const [savingPage, setSavingPage] = useState(false);
   const [saveNotice, setSaveNotice] = useState("");
   const [agentNames, setAgentNames] = useState([]);
@@ -67,12 +70,15 @@ export default function LmlmAssistant({ currentUrl }) {
         prompt: prompt.trim(),
         includePageContext: includePage,
         useKnowledge,
+        multiAgent,
       });
       if (!result?.ok) {
         throw new Error(result?.error || "LMLM request failed.");
       }
       setAnswer(result.answer);
-      setAgentNames((result.agentPlan?.selected_agents || []).map((agent) => agent.id));
+      setAgentNames(result.agentResults?.length ? result.agentResults.map((agent) => agent.id) : (result.agentPlan?.selected_agents || []).map((agent) => agent.id));
+      setAgentResults(result.agentResults || []);
+      setExecutionMode(result.executionMode || "single_model_inference");
     } catch (requestError) {
       setError(requestError.message || "LMLM request failed.");
     } finally {
@@ -128,6 +134,15 @@ export default function LmlmAssistant({ currentUrl }) {
           <input type="checkbox" checked={useKnowledge} onChange={(event) => setUseKnowledge(event.target.checked)} />
           Use my locally saved knowledge in this answer
         </label>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, margin: "9px 0", fontSize: 13 }}>
+          <input type="checkbox" checked={multiAgent} onChange={(event) => setMultiAgent(event.target.checked)} />
+          <span>
+            Run bounded multi-agent analysis
+            <span style={{ display: "block", color: "#667085" }}>
+              Runs up to three specialist model calls plus a synthesis call. Text-only; no browser or OS actions.
+            </span>
+          </span>
+        </label>
         <button
           type="button"
           style={{ ...buttonStyle, marginRight: 8 }}
@@ -163,7 +178,14 @@ export default function LmlmAssistant({ currentUrl }) {
       {answer && (
         <div style={{ marginTop: 12, padding: 12, background: "#f8fafc", borderRadius: 6 }}>
           <strong>Roda&gt;</strong>
-          {agentNames.length > 0 && <p style={{ color: "#667085", fontSize: 12 }}>Coordinator: {agentNames.join(" + ")} (plan-only routing)</p>}
+          {agentNames.length > 0 && (
+            <div style={{ color: "#667085", fontSize: 12 }}>
+              <p>Coordinator: {agentNames.join(" + ")} ({executionMode})</p>
+              {agentResults.length > 0 && (
+                <ul>{agentResults.map((agent) => <li key={agent.id}>{agent.id}: {agent.status}</li>)}</ul>
+              )}
+            </div>
+          )}
           <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}>{answer}</p>
         </div>
       )}
