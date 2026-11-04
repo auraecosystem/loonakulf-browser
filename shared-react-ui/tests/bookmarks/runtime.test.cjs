@@ -84,10 +84,9 @@ test("rejects malformed records and overlong titles", () => {
 test("risk inspection reports heuristics without claiming safety", () => {
   const result = inspectBookmarkletRisk("fetch('/api'); document.cookie; eval('1')");
   assert.equal(result.risk, "high");
-  assert.deepEqual(result.findings.map((finding) => finding.id), [
-    "cookie-access",
-    "network-request",
-    "dynamic-code"
-  ]);
+  assert.equal(
+    result.findings.map((finding) => finding.id).join(","),
+    "cookie-access,network-request,dynamic-code"
+  );
   assert.equal(inspectBookmarkletRisk("document.title").risk, "unknown");
 });
