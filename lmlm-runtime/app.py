@@ -49,12 +49,19 @@ class KnowledgeSaveRequest(BaseModel):
 
 
 def provider_configured() -> bool:
-    configured = os.getenv("LMLM_MODEL_BASE_URL", "").strip()
-    role_urls = [
+    """Whether the single-model assistant has its required shared provider."""
+    return bool(os.getenv("LMLM_MODEL_BASE_URL", "").strip())
+
+
+def multi_agent_provider_configured() -> bool:
+    """Require at least one specialist endpoint and a synthesis endpoint."""
+    default_url = os.getenv("LMLM_MODEL_BASE_URL", "").strip()
+    specialist_urls = [
         os.getenv("LMLM_" + role.upper() + "_BASE_URL", "").strip()
-        for role in ("research", "engineering", "security", "productivity", "synthesis")
+        for role in ("research", "engineering", "security", "productivity")
     ]
-    return bool(configured or any(role_urls))
+    synthesis_url = os.getenv("LMLM_SYNTHESIS_BASE_URL", "").strip()
+    return bool((default_url or any(specialist_urls)) and (default_url or synthesis_url))
 
 
 def load_persona() -> dict[str, Any]:
@@ -157,10 +164,10 @@ async def plan_agents(request: AssistRequest) -> dict[str, Any]:
 
 @app.post("/v1/agents/execute", dependencies=[Depends(require_local_ipc_token)])
 async def execute_agents(request: AssistRequest) -> dict[str, Any]:
-    if not provider_configured():
+    if not multi_agent_provider_configured():
         raise HTTPException(
             status_code=503,
-            detail="No inference provider configured. Set LMLM_MODEL_BASE_URL.",
+            detail="Multi-agent inference requires at least one specialist endpoint and a synthesis endpoint.",
         )
     try:
         plan = route_task(request.prompt)
@@ -178,6 +185,7 @@ async def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "provider_configured": provider_configured(),
+        "multi_agent_provider_configured": multi_agent_provider_configured(),
         "model": os.getenv("LMLM_MODEL", "local-model"),
         "multi_agent_enabled": True,
     }
