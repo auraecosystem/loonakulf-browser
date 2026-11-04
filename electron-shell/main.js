@@ -193,6 +193,108 @@ ipcMain.on("native-set-proxy-config", (event, payload) => {
     .catch((error) => console.error("[Proxy] Configuration failed:", error));
 });
 
+
+// LMLM is reached only through this loopback-only runtime URL. The renderer
+// never receives model-provider credentials or an arbitrary network primitive.
+function getLmlmRuntimeBaseUrl() {
+  const configured = process.env.LMLM_RUNTIME_URL || "http://127.0.0.1:8765";
+  try {
+    const url = new URL(configured);
+    const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+    if (url.protocol !== "http:" || !loopbackHosts.has(url.hostname) ||
+        url.username || url.password) return null;
+    return url.toString().replace(/\\/$/, "");
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function requestLmlm(pathname, options = {}, timeoutMs = 60000) {
+  const baseUrl = getLmlmRuntimeBaseUrl();
+  if (!baseUrl) throw new Error("LMLM runtime must use an HTTP loopback URL.");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${baseUrl}${pathname}`, {
+      ...options,
+      signal: controller.signal,
+    });
+    const raw = await response.text();
+    if (raw.length > 150000) throw new Error("LMLM response exceeded the size limit.");
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (_error) {
+      throw new Error("LMLM runtime returned invalid JSON.");
+    }
+    if (!response.ok) {
+      throw new Error(typeof data.detail === "string" ? data.detail : `LMLM runtime HTTP ${response.status}`);
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+ipcMain.handle("lmlm:get-status", async (event) => {
+  if (!isTrustedUiSender(event)) return { available: false, providerConfigured: false };
+  try {
+    const status = await requestLmlm("/health", {}, 2500);
+    return {
+      available: status.status === "ok",
+      providerConfigured: status.provider_configured === true,
+      model: typeof status.model === "string" ? status.model : "",
+    };
+  } catch (_error) {
+    return { available: false, providerConfigured: false };
+  }
+});
+
+ipcMain.handle("lmlm:assist", async (event, payload) => {
+  const contents = getTargetWebContents(event);
+  if (!contents || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { ok: false, error: "Untrusted browser request." };
+  }
+  if (typeof payload.prompt !== "string" ||
+      !payload.prompt.trim() ||
+      payload.prompt.length > 4000 ||
+      typeof payload.includePageContext !== "boolean") {
+    return { ok: false, error: "Invalid LMLM request payload." };
+  }
+
+  let page = { title: "", url: "", text: "" };
+  if (payload.includePageContext) {
+    try {
+      page = await contents.executeJavaScript(
+        "(() => ({ title: String(document.title || '').slice(0, 300), " +
+        "url: String(location.href || '').slice(0, 2048), " +
+        "text: String(document.body?.innerText || '').slice(0, 12000) }))()"
+      );
+    } catch (_error) {
+      return { ok: false, error: "Could not read the active page context." };
+    }
+  }
+
+  try {
+    const result = await requestLmlm("/v1/assist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: payload.prompt.trim(),
+        page_title: page.title || "",
+        page_url: page.url || "",
+        page_text: page.text || "",
+      }),
+    });
+    return { ok: true, answer: result.answer };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error.name === "AbortError" ? "LMLM request timed out." : error.message,
+    };
+  }
+});
+
 app.whenReady().then(createWindow);
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
