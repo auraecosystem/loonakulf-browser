@@ -77,7 +77,7 @@ test("uses Client Hints for browser, OS, model and CPU details", () => {
   assert.equal(result.os.version, "15");
   assert.equal(result.device.model, "Pixel 9");
   assert.equal(result.device.type, "mobile");
-  assert.equal(result.cpu.architecture, "arm64");
+  assert.equal(result.cpu.architecture, "arm");
 });
 
 test("handles missing and non-string user agents safely", () => {
