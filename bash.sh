@@ -39,10 +39,14 @@ npm init -y
 npm install electron --save-dev
 npx electron main.js &
 # 1. Initialize and launch your React `
-dashboard 
+../dashboard 
 cd shared-react-ui
 npm install
 npm start &
 cd shared-react-ui
 npm install dexie
 Use code with caution.
+git clone https://github.com/auraecosystem/loonakulf-browser.git
+cd loonakulf-browser/shared-react-ui
+npm install
+npm run start
