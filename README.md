@@ -113,7 +113,7 @@ sequenceDiagram
 
 ## Repository layout
 
-```text
+```bash
 loonakulf-browser/
 ├── .github/
 │   └── workflows/
@@ -169,6 +169,7 @@ loonakulf-browser/
 ```bash
 git clone https://github.com/auraecosystem/loonakulf-browser.git
 cd loonakulf-browser/shared-react-ui
+npx create-expo-app@latest
 
 npm install
 npm run start
@@ -210,6 +211,8 @@ Production work requires strict origin checks, message schemas, method allowlist
 ### Swift — iOS prototype
 
 The Swift shell uses UIKit and WKWebView. Its current script-message handler is a prototype. Production work requires navigation policy, trusted local UI loading, message-origin validation, narrowly scoped handlers and lifecycle cleanup.
+
+<img width="2048" height="2048" alt="A8969C90-72E7-4F46-83A6-3E7BEB0B22F2" src="https://github.com/user-attachments/assets/cf88e6ca-bb98-4d20-902d-34e41a5ef707" />
 
 ## Documentation
 
