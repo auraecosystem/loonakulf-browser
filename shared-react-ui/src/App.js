@@ -83,7 +83,8 @@ export default function App() {
   const [capabilities, setCapabilities] = useState(null);
   const [highEntropyEnabled, setHighEntropyEnabled] = useState(false);
 
-  const bookmarklets = useLiveQuery(() => db.bookmarklets.toArray(), []) || [];
+  const liveBookmarklets = useLiveQuery(() => db.bookmarklets.toArray(), []);
+  const bookmarklets = useMemo(() => liveBookmarklets || [], [liveBookmarklets]);
   const categories = useMemo(
     () => ["ALL", ...new Set(bookmarklets.map((item) => item.category || "General"))],
     [bookmarklets],
