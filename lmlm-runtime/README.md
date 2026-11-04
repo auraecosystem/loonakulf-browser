@@ -1,8 +1,8 @@
 # LMLM Browser Runtime
 
 A small loopback service that connects Loonakulf Browser to a configurable
-OpenAI-compatible inference endpoint. It is an initial integration slice, not
-the complete LMLM autonomous-agent platform.
+OpenAI-compatible inference endpoint, with opt-in local knowledge and a
+plan-only agent coordinator. It is not the complete LMLM autonomous-agent platform.
 
 ## Run
 
@@ -41,10 +41,9 @@ invoke the narrow `browserAPI.getLmlmStatus()` and `browserAPI.askLmlm()`
 methods exposed by preload. It cannot access the provider key or make arbitrary
 native calls through this integration.
 
-Page text is collected only when the user explicitly enables the
-"Include active page text" option for a request. It is limited to 12,000
-characters, is treated as untrusted context, and is not persisted by this
-service. Model output is displayed as text; it is never executed.
+Page text is shared for analysis only when the user enables the
+"Include active page text" option. Saving a page is a separate explicit action.
+Model output is displayed as text; it is never executed.
 
 ## Security and limitations
 
@@ -56,3 +55,22 @@ service. Model output is displayed as text; it is never executed.
 - Production deployment still needs authenticated local IPC/service lifecycle,
   rate limits, model-provider policy, privacy controls, and platform-specific
   bridge implementations for PyQt and Swift.
+
+
+## Local knowledge and agent routing
+
+The runtime includes an explicit-consent SQLite knowledge store.
+
+- Use **Save current page to local knowledge** in the Electron assistant to save the active page. This is user-triggered, not background collection.
+- The database defaults to `~/.local/share/loonakulf/lmlm/knowledge.sqlite3`.
+- Set `LMLM_DATA_DIR` to choose another local data directory.
+- Enable **Use my locally saved knowledge** to retrieve matching saved text in an assistant request. Retrieved text remains untrusted reference data.
+- API: `POST /v1/knowledge`, `GET /v1/knowledge/search?q=...`, and `DELETE /v1/knowledge/{document_id}`.
+
+The agent coordinator exposes `POST /v1/agents/plan`. It currently routes requests to research, engineering, security, and productivity perspectives. This is deterministic planning only: it does not launch independent models, call tools, execute code, or perform browser actions. Actions remain under host permissions and require explicit user approval.
+
+Run tests with:
+
+```bash
+python -m unittest -v
+```
