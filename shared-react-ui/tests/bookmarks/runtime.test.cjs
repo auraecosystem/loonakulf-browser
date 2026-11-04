@@ -29,7 +29,7 @@ test("preserves comments and source semantics", () => {
 test("rejects non-string, empty, null-byte and oversized input", () => {
   assert.equal(normalizeBookmarkletSource(null).valid, false);
   assert.equal(normalizeBookmarkletSource("  ").valid, false);
-  assert.equal(normalizeBookmarkletSource("alert(1)\\0").valid, true);
+  assert.equal(normalizeBookmarkletSource("alert(1)\0").valid, false);
   assert.equal(normalizeBookmarkletSource("x".repeat(BOOKMARKLET_LIMITS.maxSourceLength + 1)).valid, false);
 });
 
@@ -61,7 +61,7 @@ test("rejects malformed records and overlong titles", () => {
 test("risk inspection reports heuristics without claiming safety", () => {
   const result = inspectBookmarkletRisk("fetch('/api'); document.cookie; eval('1')");
   assert.equal(result.risk, "high");
-  assert.deepEqual(result.findings.map((finding) => finding.id), [
+  assert.deepEqual([...result.findings].map((finding) => finding.id), [
     "cookie-access", "network-request", "dynamic-code"
   ]);
   assert.equal(inspectBookmarkletRisk("document.title").risk, "unknown");
