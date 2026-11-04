@@ -26,7 +26,13 @@ def is_trusted_ui_url(url):
 
 
 def is_http_target_url(url):
-    return url.isValid() and url.scheme() in ("http", "https") and bool(url.host())
+    return (
+        url.isValid()
+        and url.scheme() in ("http", "https")
+        and bool(url.host())
+        and not url.userName()
+        and not url.password()
+    )
 
 
 class PyQtBridge(QObject):
