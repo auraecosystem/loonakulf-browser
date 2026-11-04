@@ -321,6 +321,11 @@ ipcMain.handle("lmlm:assist", async (event, payload) => {
   }
 
   try {
+    const agentPlan = await requestLmlm("/v1/agents/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: payload.prompt.trim() }),
+    });
     const result = await requestLmlm("/v1/assist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -332,7 +337,7 @@ ipcMain.handle("lmlm:assist", async (event, payload) => {
         use_knowledge: payload.useKnowledge,
       }),
     });
-    return { ok: true, answer: result.answer };
+    return { ok: true, answer: result.answer, agentPlan };
   } catch (error) {
     return {
       ok: false,
