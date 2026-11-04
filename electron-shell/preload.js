@@ -5,7 +5,9 @@ contextBridge.exposeInMainWorld('browserAPI', {
   sendNavAction: (payload) => ipcRenderer.send('native-browser-control', payload),
   setUserAgent: (payload) => ipcRenderer.send('native-user-agent-toggle', payload),
   clearCacheData: () => ipcRenderer.send('native-clear-cache-data'),
-  setProxyConfig: (payload) => ipcRenderer.send('native-set-proxy-config', payload)
+  setProxyConfig: (payload) => ipcRenderer.send('native-set-proxy-config', payload),
+  getLmlmStatus: () => ipcRenderer.invoke('lmlm:get-status'),
+  askLmlm: (payload) => ipcRenderer.invoke('lmlm:assist', payload)
 });
 
 ipcRenderer.on('target-url-changed', (event, url) => {
