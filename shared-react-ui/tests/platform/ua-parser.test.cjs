@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const source = readFileSync(
   path.join(__dirname, "../../src/platform/ua-parser.js"),
   "utf8"
-).replace(/^export (?:async )?function /gm, "function ");
+).replace(/^export /gm, "");
 const sandbox = { module: { exports: {} }, navigator: undefined, window: undefined };
 vm.runInNewContext(
   source + "\nmodule.exports = { parseUserAgent, detectCapabilities, getUserAgentClientHints };",
