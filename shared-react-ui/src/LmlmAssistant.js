@@ -34,7 +34,7 @@ export default function LmlmAssistant({ currentUrl }) {
       try {
         const result = await window.browserAPI.getLmlmStatus();
         if (active) {
-          setStatus(result?.providerConfigured ? "ready" : "not-configured");
+          setStatus(!result?.available ? "offline" : result.providerConfigured ? "ready" : "not-configured");
         }
       } catch (_error) {
         if (active) setStatus("offline");
