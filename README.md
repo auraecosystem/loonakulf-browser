@@ -49,8 +49,8 @@ These are architecture illustrations, not screenshots of a completed native appl
 
 | Area | Current implementation |
 |---|---|
-| Shared browser UI | React 18 entry-point scaffolding; application component requires restoration |
-| Bookmarklets | Existing Dexie schema and source utilities; shared record validation added; UI/runtime integration remains pending |
+| Shared browser UI | React 18 application and shared browser dashboard |
+| Bookmarklets | Local library and builder workflows, plus shared record validation and risk-inspection helpers |
 | Browser controls | Navigation, proxy and cache-control UI paths |
 | Platform intelligence | Browser, engine, OS, device and CPU identification |
 | Client Hints | Low-entropy hints and opt-in high-entropy retrieval with fallback |
@@ -191,7 +191,7 @@ npm run build
 npm run lint
 ```
 
-The CI workflow is configured to run platform regression tests and a React production build. The current default-branch source has a missing `shared-react-ui/src/App.js` import target, so the build must not be described as healthy until that component is restored and CI confirms it. It also checks Electron source syntax. It does not yet produce signed native installers or prove end-to-end behavior in all three shells.
+The CI workflow is configured to run platform regression tests and a React production build. The feature branch restores the shared React application component and platform parser; CI must confirm the build before this work is considered validated. It also checks Electron source syntax. It does not yet produce signed native installers or prove end-to-end behavior in all three shells.
 
 ## Platform shells
 
@@ -236,7 +236,7 @@ The hosted preview is for the shared web UI. It does not package or emulate Elec
 
 | Milestone | Status |
 |---|---|
-| Bookmarklet-first shared runtime helpers | Added; React UI integration pending |\n| Shared React UI foundation | Blocked by missing `src/App.js` on current default branch |
+| Bookmarklet-first shared runtime helpers | Added; integration and security hardening in progress |\n| Shared React UI foundation | Restored on this feature branch; CI validation pending |
 | Platform intelligence and regression tests | Implemented; continued validation required |
 | React production build in CI | Must remain green |
 | Versioned shared bridge contract | Specified; implementation pending |
