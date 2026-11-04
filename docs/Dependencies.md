@@ -1,4 +1,5 @@
-I’ll implement this as a bookmarklet-first browser architecture, not as a conventional browser with bookmarklets added as an afterthought.
+> @codex ^D
+> I’ll implement this as a bookmarklet-first browser architecture, not as a conventional browser with bookmarklets added as an afterthought.
 
 That distinction matters: Loonakulf’s product identity should be built around creating, managing, executing, and sharing browser bookmarklets, while its Electron, PyQt, Swift, and React shells provide the environments in which they run. I’ll preserve the underlying browser-engine identity separately from the Loonakulf product identity.
 
