@@ -191,7 +191,10 @@ export function parseUserAgent(input, clientHints = {}) {
  * Read UA Client Hints when supported. High-entropy fields are requested only
  * on demand by the caller; callers should avoid persisting them unnecessarily.
  */
-export async function getUserAgentClientHints(navigatorObject = typeof navigator !== "undefined" ? navigator : null) {
+export async function getUserAgentClientHints(
+  navigatorObject = typeof navigator !== "undefined" ? navigator : null,
+  { includeHighEntropy = false } = {},
+) {
   if (!navigatorObject || !navigatorObject.userAgentData) return null;
   const data = navigatorObject.userAgentData;
   const lowEntropy = {
@@ -199,7 +202,7 @@ export async function getUserAgentClientHints(navigatorObject = typeof navigator
     mobile: typeof data.mobile === "boolean" ? data.mobile : null,
     platform: typeof data.platform === "string" ? data.platform : null
   };
-  if (typeof data.getHighEntropyValues !== "function") return lowEntropy;
+  if (!includeHighEntropy || typeof data.getHighEntropyValues !== "function") return lowEntropy;
   try {
     return { ...lowEntropy, ...(await data.getHighEntropyValues([
       "architecture", "model", "platformVersion", "fullVersionList"
