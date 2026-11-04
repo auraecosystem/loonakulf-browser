@@ -130,3 +130,22 @@ test("falls back to low-entropy hints when high-entropy access fails", async () 
   assert.equal(result.mobile, false);
   assert.equal(result.brands[0].brand, "Chromium");
 });
+
+test("recognizes Loonakulf as the browser product while preserving the actual engine", () => {
+  const result = parseUserAgent(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Loonakulf/1.0.0"
+  );
+  assert.equal(result.browser.name, "Loonakulf");
+  assert.equal(result.browser.version, "1.0.0");
+  assert.equal(result.browser.source, "product-token");
+  assert.equal(result.engine.name, "Blink");
+});
+
+test("recognizes Loonakulf identity on iOS without misreporting the WebKit engine", () => {
+  const result = parseUserAgent(
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1 Loonakulf/1.0.0"
+  );
+  assert.equal(result.browser.name, "Loonakulf");
+  assert.equal(result.engine.name, "WebKit");
+  assert.equal(result.os.name, "iOS");
+});

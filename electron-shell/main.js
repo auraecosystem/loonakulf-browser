@@ -2,11 +2,20 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const { isValidUserAgent } = require("./platform");
 
+app.setName("Loonakulf Browser");
+
 let mainWindow;
 let targetWebpageView;
 
 const MAX_BOOKMARKLET_LENGTH = 256 * 1024;
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
+const LOONAKULF_UA_TOKEN = "Loonakulf/1.0.0";
+
+function withLoonakulfIdentity(userAgent) {
+  const value = typeof userAgent === "string" ? userAgent.trim() : "";
+  if (!value || value.includes("Loonakulf/")) return value;
+  return value + " " + LOONAKULF_UA_TOKEN;
+}
 
 function isTrustedUiSender(event) {
   return Boolean(
@@ -54,6 +63,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1300,
     height: 850,
+    title: "Loonakulf Browser",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -77,6 +87,9 @@ function createWindow() {
     },
   });
 
+  targetWebpageView.webContents.setUserAgent(
+    withLoonakulfIdentity(targetWebpageView.webContents.getUserAgent())
+  );
   targetWebpageView.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   targetWebpageView.webContents.on("will-navigate", (event, navigationUrl) => {
     if (!parseSafeHttpUrl(navigationUrl)) event.preventDefault();
@@ -157,7 +170,7 @@ ipcMain.on("native-user-agent-toggle", (event, payload) => {
     console.warn("[UA Switcher] Rejected untrusted sender or invalid User-Agent.");
     return;
   }
-  contents.setUserAgent(payload.uaString);
+  contents.setUserAgent(withLoonakulfIdentity(payload.uaString));
   contents.reload();
 });
 

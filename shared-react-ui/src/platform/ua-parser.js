@@ -35,6 +35,16 @@ function getBrandVersion(brands) {
 }
 
 function parseBrowser(ua, hints) {
+  const loonakulfVersion = firstMatch(ua, [new RegExp("Loonakulf/" + VERSION, "i")]);
+  if (loonakulfVersion) {
+    return {
+      name: "Loonakulf",
+      version: loonakulfVersion,
+      major: loonakulfVersion.split(".")[0],
+      source: "product-token"
+    };
+  }
+
   const rules = [
     ["Chrome Mobile iOS", new RegExp("CriOS/" + VERSION, "i")],
     ["Firefox iOS", new RegExp("FxiOS/" + VERSION, "i")],

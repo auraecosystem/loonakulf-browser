@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Loonakulf Browser mark</title>
+  <desc id="desc">A geometric cyan letter L framed by an orbital ring.</desc>
+  <defs>
+    <linearGradient id="bg" x1="12" y1="8" x2="116" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102744"/>
+      <stop offset="1" stop-color="#081426"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="30" y1="22" x2="94" y2="104" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8AF4FF"/>
+      <stop offset="1" stop-color="#35D8F2"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#bg)"/>
+  <ellipse cx="64" cy="64" rx="47" ry="25" transform="rotate(-42 64 64)" fill="none" stroke="#C6D2DF" stroke-opacity=".72" stroke-width="4"/>
+  <path d="M47 27v57h43" fill="none" stroke="url(#cyan)" stroke-width="12" stroke-linecap="square" stroke-linejoin="round"/>
+  <circle cx="98" cy="28" r="6" fill="#35D8F2"/>
+  <circle cx="29" cy="94" r="4" fill="#C6D2DF"/>
+</svg>

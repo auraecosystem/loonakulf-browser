@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtCore import QUrl, pyqtSlot, QObject
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
-from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile
 from PyQt5.QtWebChannel import QWebChannel
 
 class PyQtBridge(QObject):
@@ -17,7 +17,7 @@ class PyQtBridge(QObject):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PyQt Backup Container Engine")
+        self.setWindowTitle("Loonakulf Browser")
         self.resize(1300, 850)
 
         self.ui_browser = QWebEngineView()
@@ -41,6 +41,12 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setApplicationName("Loonakulf Browser")
+
+    profile = QWebEngineProfile.defaultProfile()
+    default_user_agent = profile.httpUserAgent().strip()
+    if "Loonakulf/" not in default_user_agent:
+        profile.setHttpUserAgent(default_user_agent + " Loonakulf/1.0.0")
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
