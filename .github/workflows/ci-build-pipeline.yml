@@ -32,6 +32,8 @@ jobs:
         run: npm run test:platform
       - name: Build React application
         working-directory: shared-react-ui
+        env:
+          BROWSERSLIST_ENV: production
         run: npm run build
 
   validate-electron-source:
