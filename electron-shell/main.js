@@ -142,7 +142,7 @@ ipcMain.handle("execute-bookmarklet", async (event, payload) => {
     typeof payload.source !== "string" ||
     !payload.source.trim() ||
     payload.source.length > MAX_BOOKMARKLET_LENGTH ||
-    /[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/.test(payload.source)
+    /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(payload.source)
   ) {
     console.warn("[Bookmarklet] Rejected untrusted sender or invalid request.");
     return { ok: false, reason: "invalid-request" };
