@@ -38,6 +38,7 @@ export function normalizeBookmarkletSource(input) {
       return { valid: false, error: "Bookmarklet URL contains malformed percent encoding.", source: "" };
     }
   }
+  // eslint-disable-next-line no-control-regex -- reject unsafe control bytes in imported source
   if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(source)) {
     return { valid: false, error: "Bookmarklet contains unsupported control characters.", source: "" };
   }
