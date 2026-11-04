@@ -231,8 +231,14 @@ async function requestLmlm(pathname, options = {}, timeoutMs = 60000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const ipcToken = process.env.LMLM_IPC_TOKEN || "";
+    const headers = {
+      ...(options.headers || {}),
+      ...(ipcToken ? { Authorization: "Bearer " + ipcToken } : {}),
+    };
     const response = await fetch(`${baseUrl}${pathname}`, {
       ...options,
+      headers,
       signal: controller.signal,
     });
     const raw = await response.text();
