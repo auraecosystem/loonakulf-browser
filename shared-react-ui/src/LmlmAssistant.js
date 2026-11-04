@@ -20,6 +20,10 @@ const buttonStyle = {
 export default function LmlmAssistant({ currentUrl }) {
   const [prompt, setPrompt] = useState("");
   const [includePage, setIncludePage] = useState(false);
+  const [useKnowledge, setUseKnowledge] = useState(false);
+  const [savingPage, setSavingPage] = useState(false);
+  const [saveNotice, setSaveNotice] = useState("");
+  const [agentNames, setAgentNames] = useState([]);
   const [status, setStatus] = useState("checking");
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState("");
@@ -62,11 +66,13 @@ export default function LmlmAssistant({ currentUrl }) {
       const result = await window.browserAPI.askLmlm({
         prompt: prompt.trim(),
         includePageContext: includePage,
+        useKnowledge,
       });
       if (!result?.ok) {
         throw new Error(result?.error || "LMLM request failed.");
       }
       setAnswer(result.answer);
+      setAgentNames((result.agentPlan?.selected_agents || []).map((agent) => agent.id));
     } catch (requestError) {
       setError(requestError.message || "LMLM request failed.");
     } finally {
@@ -118,6 +124,30 @@ export default function LmlmAssistant({ currentUrl }) {
             </span>
           </span>
         </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "9px 0", fontSize: 13 }}>
+          <input type="checkbox" checked={useKnowledge} onChange={(event) => setUseKnowledge(event.target.checked)} />
+          Use my locally saved knowledge in this answer
+        </label>
+        <button
+          type="button"
+          style={{ ...buttonStyle, marginRight: 8 }}
+          disabled={savingPage || !window.browserAPI?.saveCurrentPageToLmlm}
+          onClick={async () => {
+            setSavingPage(true);
+            setSaveNotice("");
+            try {
+              const result = await window.browserAPI.saveCurrentPageToLmlm();
+              if (!result?.ok) throw new Error(result?.error || "Could not save this page.");
+              setSaveNotice(`Saved "${result.title}" to local knowledge.`);
+            } catch (saveError) {
+              setSaveNotice(saveError.message || "Could not save this page.");
+            } finally {
+              setSavingPage(false);
+            }
+          }}
+        >
+          {savingPage ? "Saving…" : "Save current page to local knowledge"}
+        </button>
         <button type="submit" style={buttonStyle} disabled={busy || !prompt.trim()}>
           {busy ? "Thinking…" : "Ask LMLM"}
         </button>
@@ -128,10 +158,12 @@ export default function LmlmAssistant({ currentUrl }) {
         )}
       </form>
 
+      {saveNotice && <p role="status" style={{ color: "#475467", fontSize: 13 }}>{saveNotice}</p>}
       {error && <p role="alert" style={{ color: "#b42318", whiteSpace: "pre-wrap" }}>{error}</p>}
       {answer && (
         <div style={{ marginTop: 12, padding: 12, background: "#f8fafc", borderRadius: 6 }}>
           <strong>Roda&gt;</strong>
+          {agentNames.length > 0 && <p style={{ color: "#667085", fontSize: 12 }}>Coordinator: {agentNames.join(" + ")} (plan-only routing)</p>}
           <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}>{answer}</p>
         </div>
       )}
