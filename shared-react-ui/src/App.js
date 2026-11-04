@@ -137,12 +137,33 @@ export default function App() {
       setCurrentUrl(url);
       setInputUrl(url);
     };
+
+    // Qt WebChannel requires its small client library before the registered
+    // QObject can be accessed from the React page.
+    let pyqtChannelScript = null;
+    const connectPyQtChannel = () => {
+      if (!active || !window.qt?.webChannelTransport || !window.QWebChannel) return;
+      new window.QWebChannel(window.qt.webChannelTransport, (channel) => {
+        if (active) window.pyqtBridge = channel.objects.pyqtBridge;
+      });
+    };
+    if (window.qt?.webChannelTransport && !window.QWebChannel) {
+      pyqtChannelScript = document.createElement("script");
+      pyqtChannelScript.src = "qrc:///qtwebchannel/qwebchannel.js";
+      pyqtChannelScript.onload = connectPyQtChannel;
+      document.head.appendChild(pyqtChannelScript);
+    } else {
+      connectPyQtChannel();
+    }
+
     return () => {
       active = false;
+      pyqtChannelScript?.remove();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOnline);
       window.removeEventListener("message", handleNativeLogs);
       delete window.updateBrowserAddressBar;
+      delete window.pyqtBridge;
     };
   }, []);
 
