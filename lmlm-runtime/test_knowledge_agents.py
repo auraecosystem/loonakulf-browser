@@ -7,6 +7,8 @@ from agent_coordinator import route_task
 from app import AssistRequest, build_messages
 from knowledge_store import delete_document, save_document, search_documents
 from multi_agent_runtime import select_specialists
+from httpx import ASGITransport, AsyncClient
+from app import app
 
 
 class KnowledgeStoreTests(unittest.TestCase):
@@ -94,6 +96,26 @@ class MultiAgentExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["tools_invoked"], [])
         self.assertFalse(result["browser_actions_performed"])
 
+
+
+class LocalIpcAuthenticationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_v1_routes_require_configured_bearer_token(self):
+        with patch.dict(os.environ, {"LMLM_IPC_TOKEN": "test-secret-token"}):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                denied = await client.post("/v1/agents/plan", json={"prompt": "test"})
+                allowed = await client.post(
+                    "/v1/agents/plan",
+                    json={"prompt": "test"},
+                    headers={"Authorization": "Bearer test-secret-token"},
+                )
+        self.assertEqual(denied.status_code, 401)
+        self.assertEqual(allowed.status_code, 200)
+
+    async def test_v1_routes_fail_closed_without_token_configuration(self):
+        with patch.dict(os.environ, {"LMLM_IPC_TOKEN": ""}):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.post("/v1/agents/plan", json={"prompt": "test"})
+        self.assertEqual(response.status_code, 503)
 
 if __name__ == "__main__":
     unittest.main()
