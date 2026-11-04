@@ -49,7 +49,12 @@ class KnowledgeSaveRequest(BaseModel):
 
 
 def provider_configured() -> bool:
-    return bool(os.getenv("LMLM_MODEL_BASE_URL", "").strip())
+    configured = os.getenv("LMLM_MODEL_BASE_URL", "").strip()
+    role_urls = [
+        os.getenv("LMLM_" + role.upper() + "_BASE_URL", "").strip()
+        for role in ("research", "engineering", "security", "productivity", "synthesis")
+    ]
+    return bool(configured or any(role_urls))
 
 
 def load_persona() -> dict[str, Any]:
