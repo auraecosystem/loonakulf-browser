@@ -110,7 +110,7 @@ class ViewController: UIViewController, WKScriptMessageHandler, WKNavigationDele
 
         let alert = UIAlertController(
             title: "Run bookmarklet?",
-            message: "Run \"" + title + "\" on " + targetOrigin + "? This script runs with the active page's privileges. It may read or modify page content and access data available to scripts on this origin. Continue only if you trust the source.",
+            message: "Run \"" + title + "\" on " + targetOrigin + "? This script runs with the active page's privileges. It may read or modify page content and access data available to scripts on this origin. Continue only if you trust the source.\\n\\nSource preview:\\n" + String(source.prefix(600)) + (source.count > 600 ? "…" : ""),
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
