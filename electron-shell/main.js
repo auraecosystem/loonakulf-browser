@@ -8,8 +8,17 @@ let targetWebpageView;
 const MAX_BOOKMARKLET_LENGTH = 256 * 1024;
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 
+const TRUSTED_UI_ORIGIN = "http://localhost:3000";
+
 function isTrustedUiSender(event) {
+  let senderOrigin = "";
+  try {
+    senderOrigin = new URL(event.senderFrame && event.senderFrame.url).origin;
+  } catch (_error) {
+    return false;
+  }
   return Boolean(
+    senderOrigin === TRUSTED_UI_ORIGIN &&
     mainWindow &&
     !mainWindow.isDestroyed() &&
     event.sender === mainWindow.webContents &&
@@ -62,7 +71,14 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL("http://localhost:3000");
+  mainWindow.loadURL(TRUSTED_UI_ORIGIN);
+  mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
+    try {
+      if (new URL(navigationUrl).origin !== TRUSTED_UI_ORIGIN) event.preventDefault();
+    } catch (_error) {
+      event.preventDefault();
+    }
+  });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
   targetWebpageView = new BrowserWindow({
