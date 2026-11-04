@@ -283,3 +283,12 @@ uvicorn app:app --host 127.0.0.1 --port 8765
 Then start the shared React UI and Electron shell using the repository's development workflow. The Electron main process communicates with the runtime over loopback. Provider credentials stay in the runtime environment.
 
 See [LMLM runtime setup](lmlm-runtime/README.md) and [the multi-shell security boundary](docs/multishell-architecture.md). The first integration supports contextual assistance only; it does not grant the model autonomous navigation, form submission, downloads, wallet access, or arbitrary browser execution. PyQt and Swift adapters remain future work.
+
+
+### Local knowledge and agent coordination
+
+The Electron LMLM assistant supports user-triggered saving of the active page to a local SQLite knowledge store. Users can separately opt to retrieve saved knowledge in an answer. Content is not collected in the background.
+
+LMLM also routes each request to specialist perspectives (research, engineering, security, productivity) and displays the selected roles. This first coordinator is plan-only; it does not run autonomous agents or grant browser permissions.
+
+See [LMLM runtime documentation](lmlm-runtime/README.md) for configuration, privacy boundaries, API routes and tests.
