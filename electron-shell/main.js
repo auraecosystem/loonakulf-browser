@@ -13,7 +13,7 @@ const LOONAKULF_UA_TOKEN = "Loonakulf/1.0.0";
 
 function withLoonakulfIdentity(userAgent) {
   const value = typeof userAgent === "string" ? userAgent.trim() : "";
-  if (!value || /\\bLoonakulf\\//i.test(value)) return value;
+  if (!value || value.includes("Loonakulf/")) return value;
   return value + " " + LOONAKULF_UA_TOKEN;
 }
 
