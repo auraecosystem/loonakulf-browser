@@ -157,7 +157,7 @@ ipcMain.handle("execute-bookmarklet", async (event, payload) => {
     type: "warning",
     title: "Run bookmarklet?",
     message: "Run “" + payload.title.trim() + "” on " + targetOrigin + "?",
-    detail: "This script runs with the active page’s privileges. It may read or modify page content and access data available to scripts on this origin. Only continue if you trust the source.\\n\\nSource preview:\\n" + payload.source.slice(0, 600) + (payload.source.length > 600 ? "…" : ""),
+    detail: "This script runs with the active page’s privileges. It may read or modify page content and access data available to scripts on this origin. Only continue if you trust the source.\n\nSource preview:\n" + payload.source.slice(0, 600) + (payload.source.length > 600 ? "…" : ""),
     buttons: ["Cancel", "Run once"],
     defaultId: 0,
     cancelId: 0,
