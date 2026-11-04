@@ -80,6 +80,7 @@ export default function App() {
   const [isProxyActive, setIsProxyActive] = useState(false);
   const [platform, setPlatform] = useState(null);
   const [capabilities, setCapabilities] = useState(null);
+  const [highEntropyEnabled, setHighEntropyEnabled] = useState(false);
 
   const bookmarklets = useLiveQuery(() => db.bookmarklets.toArray(), []) || [];
   const categories = useMemo(
@@ -115,13 +116,13 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    const refreshPlatform = async () => {
-      const hints = await getUserAgentClientHints(window.navigator);
+    const refreshPlatform = async (includeHighEntropy = false) => {
+      const hints = await getUserAgentClientHints(window.navigator, { includeHighEntropy });
       if (!active) return;
       setPlatform(parseUserAgent(window.navigator.userAgent, hints || {}));
       setCapabilities(detectCapabilities(window));
     };
-    refreshPlatform();
+    refreshPlatform(false);
     const handleOnline = () => setCapabilities(detectCapabilities(window));
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOnline);
@@ -393,8 +394,19 @@ export default function App() {
             Runtime: touch {capabilities.touch ? "yes" : "no"} · online {capabilities.online === null ? "unknown" : capabilities.online ? "yes" : "no"} · service worker {capabilities.serviceWorker ? "yes" : "no"} · Client Hints {capabilities.userAgentData ? "yes" : "no"}
           </p>
         )}
+        <button
+          type="button"
+          style={buttonStyle}
+          onClick={async () => {
+            setHighEntropyEnabled(true);
+            const hints = await getUserAgentClientHints(window.navigator, { includeHighEntropy: true });
+            setPlatform(parseUserAgent(window.navigator.userAgent, hints || {}));
+          }}
+        >
+          {highEntropyEnabled ? "Refresh detailed device hints" : "Request detailed device hints"}
+        </button>
         <p style={{ color: "#6b7280", fontSize: 12, marginBottom: 0 }}>
-          Diagnostic signals only; User-Agent data is not device identity or an authorization signal.
+          Diagnostic signals only. Detailed device hints are requested only after you select the button; User-Agent data is not device identity or an authorization signal.
         </p>
       </section>
 
