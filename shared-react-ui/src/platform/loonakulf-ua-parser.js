@@ -40,7 +40,7 @@ export function withLoonakulfProductToken(input, version = LOONAKULF_PRODUCT.def
   }
   const ua = typeof input === "string" ? input.slice(0, MAX_UA_LENGTH) : "";
   const withoutProductToken = ua
-    .replace(/(?:^|\\s)Loonakulf\\/\\d+(?:\\.\\d+){0,3}(?=\\s|$)/ig, "")
+    .replace(/(?:^|\s)Loonakulf\/\d+(?:\.\d+){0,3}(?=\s|$)/ig, "")
     .trim();
   const token = LOONAKULF_PRODUCT.token + "/" + version;
   return (withoutProductToken ? withoutProductToken + " " : "") + token;
