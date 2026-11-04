@@ -207,9 +207,7 @@ Current source includes sender/frame and localhost UI-origin checks, navigation 
 
 ### PyQt — desktop prototype
 
-The PyQt shell uses Qt WebEngine and Qt WebChannel. Its current bookmarklet forwarding path can execute code in the target page and must not be treated as a trusted production bridge.
-
-Production work requires strict origin checks, message schemas, method allowlisting, payload limits, permission checks and lifecycle handling.
+The PyQt shell uses Qt WebEngine and Qt WebChannel. The feature branch validates the local UI origin and request shape, bounds the source, asks for native per-run confirmation with a target-origin/source preview, and rechecks the target origin before execution. It remains a prototype; packaged-origin support, navigation hardening and end-to-end tests are outstanding.
 
 ### Swift — iOS prototype
 
