@@ -18,7 +18,7 @@ The intended differentiator is a focused environment for user-authored browser a
 
 ## Runtime boundary
 
-The shared React layer validates records and presents consent. It must not treat source validation or static scanning as proof of safety. Bookmarklet source is executable, untrusted code.
+The shared React layer validates records and sends a typed run request. Each native shell independently validates the caller, payload and active target, then displays a native confirmation for every run. Static scanning is advisory only. Bookmarklet source is executable, untrusted code.
 
 A production execution request should include:
 - a stable bookmarklet identifier and immutable source version;
@@ -27,7 +27,7 @@ A production execution request should include:
 - a permission decision scoped to that run and origin;
 - a request ID, timeout and bounded source size.
 
-The native shell must independently validate the sender, active target, origin, payload schema, size and permission. It must reject stale tab references and unknown bridge methods. Never expose generic shell execution, filesystem access, unrestricted IPC or a general-purpose native `eval` endpoint.
+The native shell must independently validate the sender, active target, origin, payload schema and size. The current adapters show a native consent prompt for each run and recheck the target origin after consent. They must reject stale tab references and unknown bridge methods. Never expose generic shell execution, filesystem access, unrestricted IPC or a general-purpose native `eval` endpoint.
 
 Bookmarklets necessarily execute in the target page's JavaScript context and can access what that page exposes to scripts. Sandboxing a bookmarklet in an isolated world changes its access to the page DOM; it is not a drop-in replacement. The browser must communicate this clearly and require confirmation for privileged actions.
 
@@ -39,7 +39,7 @@ Bookmarklets necessarily execute in the target page's JavaScript context and can
 - `inspectBookmarkletRisk` — heuristic findings, never a safety verdict;
 - `BOOKMARKLET_LIMITS` — shared input limits.
 
-The helper intentionally does not use `eval`, `new Function`, strip comments, or repeatedly decode percent-encoded source. A successful validation means only that the record meets basic structural limits.
+The helper does not use `eval` or `new Function`, strip comments, or repeatedly decode percent-encoded source. The legacy `processAndValidateBookmarklet` entry point now performs structural checks only; it does not claim to prove JavaScript syntax or safety. A successful validation means only that the record meets basic input limits.
 
 ## Security and privacy principles
 
