@@ -58,3 +58,10 @@ git clone https://github.com/auraecosystem/loonakulf-browser.git
 cd loonakulf-browser/shared-react-ui
 npm install
 npm run start
+# run the shared build 
+git clone https://github.com/auraecosystem/loonakulf-browser.git
+cd loonakulf-browser/shared-react-ui
+npx create-expo-app@latest
+
+npm install
+npm run start
