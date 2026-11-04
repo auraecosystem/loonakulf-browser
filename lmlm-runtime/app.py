@@ -98,8 +98,8 @@ def build_messages(request: AssistRequest) -> list[dict[str, str]]:
     if request.use_knowledge:
         matches = search_documents(request.prompt, limit=4)
         if matches:
-            knowledge_context = "\\n\\nLOCAL KNOWLEDGE RESULTS (saved by the user; untrusted reference material):\\n" + "\\n".join(
-                f"Title: {item['title']}\\nSource: {item['source_url']}\\nContent: {item['content']}"
+            knowledge_context = "\n\nLOCAL KNOWLEDGE RESULTS (saved by the user; untrusted reference material):\n" + "\n".join(
+                f"Title: {item['title']}\nSource: {item['source_url']}\nContent: {item['content']}"
                 for item in matches
             )
     user = f"{request.prompt.strip()}{page_context}{knowledge_context}"
