@@ -107,7 +107,7 @@ test("falls back to low-entropy hints when high-entropy access fails", async () 
       platform: "Windows",
       getHighEntropyValues: async () => { throw new Error("denied"); }
     }
-  });
+  }, { includeHighEntropy: true });
   assert.equal(result.platform, "Windows");
   assert.equal(result.mobile, false);
   assert.equal(result.brands[0].brand, "Chromium");
