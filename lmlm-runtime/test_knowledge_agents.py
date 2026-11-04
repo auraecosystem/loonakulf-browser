@@ -71,12 +71,15 @@ class MultiAgentRuntimeTests(unittest.TestCase):
 
 
 class MultiAgentExecutionTests(unittest.IsolatedAsyncioTestCase):
-    @patch.dict(os.environ, {"LMLM_MODEL_BASE_URL": "http://127.0.0.1:1234/v1"})
+    @patch.dict(os.environ, {"LMLM_MODEL_BASE_URL": "http://127.0.0.1:1234/v1", "LMLM_RESEARCH_MODEL": "research-local", "LMLM_ENGINEERING_MODEL": "coder-local", "LMLM_SECURITY_MODEL": "security-local", "LMLM_SYNTHESIS_MODEL": "synthesis-local"})
     @patch("multi_agent_runtime._chat", new_callable=AsyncMock)
     async def test_specialists_run_and_synthesis_returns_text_only_result(self, mock_chat):
         from multi_agent_runtime import execute_specialists
 
-        async def fake_chat(_client, _endpoint, _headers, _model, messages):
+        observed_models = []
+
+        async def fake_chat(_client, _endpoint, _headers, model, messages):
+            observed_models.append(model)
             system = messages[0]["content"]
             if "synthesis coordinator" in system:
                 return "Combined findings."
@@ -93,6 +96,10 @@ class MultiAgentExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["execution_mode"], "bounded_multi_agent_inference")
         self.assertEqual(len(result["agent_results"]), 3)
         self.assertEqual(mock_chat.await_count, 4)
+        self.assertCountEqual(
+            observed_models,
+            ["research-local", "coder-local", "security-local", "synthesis-local"],
+        )
         self.assertEqual(result["tools_invoked"], [])
         self.assertFalse(result["browser_actions_performed"])
 
