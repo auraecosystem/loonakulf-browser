@@ -33,7 +33,6 @@ jobs:
       - name: Build React application
         working-directory: shared-react-ui
         env:
-          BROWSERSLIST: ">0.2%, not dead, not op_mini"
           BROWSERSLIST_ENV: production
         run: npm run build
 
