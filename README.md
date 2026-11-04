@@ -233,7 +233,7 @@ The public preview is planned for:
 
 **[https://auraecosystem.github.io/loonakulf-browser/](https://auraecosystem.github.io/loonakulf-browser/)**
 
-The preview is not considered live until the repository's GitHub Pages source is set to **GitHub Actions** and the deployment workflow succeeds. See [docs/demo.md](docs/demo.md) for the exact setup steps.
+The preview is not considered live until the repository's GitHub Pages source is set to **GitHub Actions** and the deployment workflow succeeds. See [docs/demo.md](docs/demo.md#index.html) for the exact setup steps.
 
 The hosted preview is for the shared web UI. It does not package or emulate Electron, PyQt or native iOS functionality.
 
