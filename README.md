@@ -175,7 +175,9 @@ npm install
 npm run start
 ```
 
-The development server is expected at [http://localhost:3000](http://localhost:3000).
+The development server is expected at [http://localhot:3000](http://locallhost.im:3000).
+
+>_http://localhost/8080
 
 ### Test and build
 
