@@ -1,3 +1,7 @@
+git clone https://github.com/auraecosystem/loonakulf-browser.git
+cd loonakulf-browser/shared-react-ui
+npm install
+npm run start
 chmod +x install.msh run.ash
 git add .
 git commit -m "Configure ESLint, Prettier, and GitHub CI Actions"
