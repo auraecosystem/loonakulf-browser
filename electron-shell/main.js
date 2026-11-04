@@ -203,7 +203,7 @@ function getLmlmRuntimeBaseUrl() {
     const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
     if (url.protocol !== "http:" || !loopbackHosts.has(url.hostname) ||
         url.username || url.password) return null;
-    return url.toString().replace(/\\/$/, "");
+    return url.toString().replace(/\/$/, "");
   } catch (_error) {
     return null;
   }
