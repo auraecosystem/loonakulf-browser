@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from agent_coordinator import route_task
 from app import AssistRequest, build_messages
@@ -66,6 +66,33 @@ class MultiAgentRuntimeTests(unittest.TestCase):
     def test_unknown_agent_roles_are_not_executed(self):
         selected = select_specialists({"selected_agents": [{"id": "shell"}, {"id": "security"}]})
         self.assertEqual([agent["id"] for agent in selected], ["security"])
+
+
+class MultiAgentExecutionTests(unittest.IsolatedAsyncioTestCase):
+    @patch.dict(os.environ, {"LMLM_MODEL_BASE_URL": "http://127.0.0.1:1234/v1"})
+    @patch("multi_agent_runtime._chat", new_callable=AsyncMock)
+    async def test_specialists_run_and_synthesis_returns_text_only_result(self, mock_chat):
+        from multi_agent_runtime import execute_specialists
+
+        async def fake_chat(_client, _endpoint, _headers, _model, messages):
+            system = messages[0]["content"]
+            if "synthesis coordinator" in system:
+                return "Combined findings."
+            return "Specialist findings."
+
+        mock_chat.side_effect = fake_chat
+        plan = route_task("Research and implement a secure browser runtime")
+        result = await execute_specialists(
+            "Research and implement a secure browser runtime",
+            [{"role": "system", "content": "System"}, {"role": "user", "content": "Task"}],
+            plan,
+        )
+        self.assertEqual(result["answer"], "Combined findings.")
+        self.assertEqual(result["execution_mode"], "bounded_multi_agent_inference")
+        self.assertEqual(len(result["agent_results"]), 3)
+        self.assertEqual(mock_chat.await_count, 4)
+        self.assertEqual(result["tools_invoked"], [])
+        self.assertFalse(result["browser_actions_performed"])
 
 
 if __name__ == "__main__":
