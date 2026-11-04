@@ -14,6 +14,9 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, ConfigDict
 
+from agent_coordinator import route_task
+from knowledge_store import delete_document, save_document, search_documents
+
 app = FastAPI(title="LMLM Browser Runtime", version="0.1.0")
 
 
@@ -23,6 +26,15 @@ class AssistRequest(BaseModel):
     page_title: str = Field(default="", max_length=300)
     page_url: str = Field(default="", max_length=2048)
     page_text: str = Field(default="", max_length=12000)
+    use_knowledge: bool = False
+
+
+class KnowledgeSaveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    confirm_save: bool
+    title: str = Field(min_length=1, max_length=300)
+    source_url: str = Field(default="", max_length=2048)
+    content: str = Field(min_length=1, max_length=30000)
 
 
 def provider_configured() -> bool:
@@ -82,11 +94,46 @@ def build_messages(request: AssistRequest) -> list[dict[str, str]]:
             f"{request.page_text}"
         )
 
-    user = f"{request.prompt.strip()}{page_context}"
+    knowledge_context = ""
+    if request.use_knowledge:
+        matches = search_documents(request.prompt, limit=4)
+        if matches:
+            knowledge_context = "\\n\\nLOCAL KNOWLEDGE RESULTS (saved by the user; untrusted reference material):\\n" + "\\n".join(
+                f"Title: {item['title']}\\nSource: {item['source_url']}\\nContent: {item['content']}"
+                for item in matches
+            )
+    user = f"{request.prompt.strip()}{page_context}{knowledge_context}"
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
+
+
+@app.post("/v1/knowledge")
+async def add_knowledge(request: KnowledgeSaveRequest) -> dict[str, Any]:
+    if request.confirm_save is not True:
+        raise HTTPException(status_code=400, detail="Explicit save confirmation is required.")
+    saved = save_document(request.title, request.source_url, request.content)
+    return {"saved": True, **saved}
+
+
+@app.get("/v1/knowledge/search")
+async def find_knowledge(q: str = "") -> dict[str, Any]:
+    if len(q) > 500:
+        raise HTTPException(status_code=400, detail="Search query is too long.")
+    return {"results": search_documents(q, limit=5)}
+
+
+@app.delete("/v1/knowledge/{document_id}")
+async def remove_knowledge(document_id: str) -> dict[str, bool]:
+    if len(document_id) > 64:
+        raise HTTPException(status_code=400, detail="Invalid document identifier.")
+    return {"deleted": delete_document(document_id)}
+
+
+@app.post("/v1/agents/plan")
+async def plan_agents(request: AssistRequest) -> dict[str, Any]:
+    return route_task(request.prompt)
 
 
 @app.get("/health")
