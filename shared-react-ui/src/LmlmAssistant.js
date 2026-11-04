@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 
 const panelStyle = {
   background: "#fff",
@@ -137,3 +138,7 @@ export default function LmlmAssistant({ currentUrl }) {
     </section>
   );
 }
+
+LmlmAssistant.propTypes = {
+  currentUrl: PropTypes.string,
+};
