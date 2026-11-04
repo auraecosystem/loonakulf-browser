@@ -44,6 +44,8 @@ jobs:
         working-directory: shared-react-ui
         env:
           PUBLIC_URL: /loonakulf-browser
+          BROWSERSLIST: ">0.2%, not dead, not op_mini"
+          BROWSERSLIST_ENV: production
         run: npm run build
 
       - name: Configure GitHub Pages
