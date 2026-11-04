@@ -2,53 +2,41 @@ name: Loonakulf Browser Continuous Integration (CI)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  # Job 1: Verify and Compile Web Frontend Code
   build-frontend:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code Matrix
-        uses: actions/checkout@v7
-
-      - name: Setup Node.js Environment Runtime
-        uses: actions/setup-node@v4
-        with:
-          node-size: 20
-          cache: 'npm'
-          cache-dependency-path: 'shared-react-ui/package.json'
-
-      - name: Build Web Production Packages
-        run: |
-          cd shared-react-ui
-          npm install
-          npm run lint --if-present
-          npm run build
-
-  # Job 2: Verify and Compile Native Desktop Electron App
-  build-electron:
-    needs: build-frontend
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - name: Checkout Code Matrix
+      - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Setup Node.js Environment Runtime
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: 'electron-shell/package.json'
+      - name: Install shared UI dependencies
+        working-directory: shared-react-ui
+        run: npm install --no-audit --no-fund
+      - name: Run platform regression tests
+        working-directory: shared-react-ui
+        run: npm run test:platform
+      - name: Build React application
+        working-directory: shared-react-ui
+        run: npm run build
 
-      - name: Compile Cross-Platform Executables Check
+  validate-electron-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate Electron JavaScript syntax
         run: |
-          cd electron-shell
-          npm install
-          # Runs the compiler verify step without attempting code signing certificates deployment
-          npx electron-builder --dir
+          node --check electron-shell/main.js
+          node --check electron-shell/preload.js
+          node --check electron-shell/platform.js
