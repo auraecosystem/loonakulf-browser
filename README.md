@@ -50,15 +50,15 @@ These are architecture illustrations, not screenshots of a completed native appl
 | Area | Current implementation |
 |---|---|
 | Shared browser UI | React 18 application and shared browser dashboard |
-| Bookmarklets | Local library and builder workflows, plus shared record validation and risk-inspection helpers |
+| Bookmarklets | Local library, builder, bounded source validation, static risk findings and native per-run consent dialogs with source previews |
 | Browser controls | Navigation, proxy and cache-control UI paths |
 | Platform intelligence | Browser, engine, OS, device and CPU identification |
 | Client Hints | Low-entropy hints and opt-in high-entropy retrieval with fallback |
-| Electron | Main/preload separation, IPC sender checks and native browser controls |
-| PyQt | Basic Qt WebEngine container prototype |
-| Swift | Basic UIKit and WKWebView container prototype |
+| Electron | Main/preload separation, trusted UI-origin checks, bounded bookmarklet IPC and native per-run confirmation |
+| PyQt | Qt WebEngine prototype with UI-origin validation, bounded requests and per-run native confirmation |
+| Swift | UIKit/WKWebView prototype with main-frame origin checks and per-run native confirmation |
 
-**Important:** the PyQt and Swift bridges are prototypes, not production security boundaries. Native bookmarklet execution is privileged and requires explicit authorization and shell-side validation. See [security and architecture notes](docs/multishell-architecture.md).
+**Security status:** the feature branch now requires native confirmation for each bookmarklet run and checks the trusted local UI origin, target origin and request bounds in each shell. These shells remain prototypes: their trusted UI is currently hard-coded to `http://localhost:3000`, packaged-origin support and end-to-end tests are not complete, and consent does not make untrusted code safe. See [security and architecture notes](docs/multishell-architecture.md).
 
 ## Architecture
 
@@ -127,6 +127,7 @@ loonakulf-browser/
 │   │   ├── loonakulf-architecture.svg
 │   │   ├── loonakulf-runtime-flow.svg
 │   │   └── loonakulf-ui-concept.svg
+│   ├── bookmarklet-first-architecture.md
 │   ├── Dependencies.md
 │   ├── UA-parser.md
 │   ├── architecture.md
@@ -144,10 +145,13 @@ loonakulf-browser/
 │   │   └── index.html
 │   ├── src/
 │   │   ├── App.js
+│   │   ├── bookmarks/
+│   │   │   └── runtime.js
 │   │   ├── db.js
 │   │   ├── index.js
 │   │   └── platform/
 │   ├── tests/
+│   │   ├── bookmarks/
 │   │   └── platform/
 │   └── package.json
 ├── swift-shell/
@@ -191,7 +195,7 @@ npm run build
 npm run lint
 ```
 
-The CI workflow is configured to run platform regression tests and a React production build. The feature branch restores the shared React application component and platform parser; CI must confirm the build before this work is considered validated. It also checks Electron source syntax. It does not yet produce signed native installers or prove end-to-end behavior in all three shells.
+The CI workflow runs platform and bookmarklet regression tests, a React production build, Electron syntax checks and a Python syntax check. CI must confirm the current branch before this work is considered validated. It does not compile the iOS target, produce signed native installers or prove end-to-end behavior in all three shells.
 
 ## Platform shells
 
@@ -199,23 +203,22 @@ The CI workflow is configured to run platform regression tests and a React produ
 
 The Electron shell contains the main process, preload bridge and platform helpers.
 
-Current source includes sender/frame checks, URL and proxy input validation, and allowlisted browser-control actions. Before production use, enforce a strict trusted UI origin, navigation/redirect policy and a packaged application loading strategy. A complete Electron packaging manifest and release pipeline are still outstanding.
+Current source includes sender/frame and localhost UI-origin checks, navigation restrictions, URL and proxy validation, allowlisted browser-control actions, bounded bookmarklet requests and a native per-run confirmation that displays the target origin and a source preview. The trusted UI origin is currently the development server; packaged-origin support, complete end-to-end tests, an Electron packaging manifest and a release pipeline remain outstanding.
 
 ### PyQt — desktop prototype
 
-The PyQt shell uses Qt WebEngine and Qt WebChannel. Its current bookmarklet forwarding path can execute code in the target page and must not be treated as a trusted production bridge.
-
-Production work requires strict origin checks, message schemas, method allowlisting, payload limits, permission checks and lifecycle handling.
+The PyQt shell uses Qt WebEngine and Qt WebChannel. The feature branch validates the local UI origin and request shape, bounds the source, asks for native per-run confirmation with a target-origin/source preview, and rechecks the target origin before execution. It remains a prototype; packaged-origin support, navigation hardening and end-to-end tests are outstanding.
 
 ### Swift — iOS prototype
 
-The Swift shell uses UIKit and WKWebView. Its current script-message handler is a prototype. Production work requires navigation policy, trusted local UI loading, message-origin validation, narrowly scoped handlers and lifecycle cleanup.
+The Swift shell uses UIKit and WKWebView. The feature branch restricts UI navigation to the local development origin, validates main-frame messages and source bounds, asks for native per-run confirmation, and rechecks the target origin before execution. It remains a prototype; packaged UI-origin support, Xcode project integration and device testing are outstanding.
 
 ## Documentation
 
 | Document | Description |
 |---|---|
-| [Bookmarklet-first architecture](docs/bookmarklet-first-architecture.md) | Product definition, shared runtime helpers, execution model and security requirements |\n| [Multi-shell architecture](docs/multishell-architecture.md) | Shell responsibilities, bridge contract, security rules and implementation status |
+| [Bookmarklet-first architecture](docs/bookmarklet-first-architecture.md) | Product definition, shared runtime helpers, execution model and security requirements |
+| [Multi-shell architecture](docs/multishell-architecture.md) | Shell responsibilities, bridge contract, security rules and implementation status |
 | [Architecture notes](docs/architecture.md) | Existing architecture reference |
 | [Dependencies](docs/Dependencies.md) | Dependency and setup notes |
 | [User-Agent parser](docs/UA-parser.md) | Platform identity parsing |
@@ -236,7 +239,8 @@ The hosted preview is for the shared web UI. It does not package or emulate Elec
 
 | Milestone | Status |
 |---|---|
-| Bookmarklet-first shared runtime helpers | Added; integration and security hardening in progress |\n| Shared React UI foundation | Restored on this feature branch; CI validation pending |
+| Bookmarklet-first shared runtime and native per-run consent | Implemented on feature branch; CI and end-to-end validation pending |
+| Shared React UI foundation | Restored on this feature branch; CI validation pending |
 | Platform intelligence and regression tests | Implemented; continued validation required |
 | React production build in CI | Must remain green |
 | Versioned shared bridge contract | Specified; implementation pending |

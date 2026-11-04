@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
+import { createBookmarkletRecord, validateBookmarkletRequest } from "./bookmarks/runtime";
 import {
   auditScriptSecurityRisks,
   processAndValidateBookmarklet,
@@ -70,6 +71,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const [inspectingId, setInspectingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editCategory, setEditCategory] = useState("General");
   const [editRawCode, setEditRawCode] = useState("");
@@ -136,31 +138,69 @@ export default function App() {
       setCurrentUrl(url);
       setInputUrl(url);
     };
+
+    // Qt WebChannel requires its small client library before the registered
+    // QObject can be accessed from the React page.
+    let pyqtChannelScript = null;
+    const connectPyQtChannel = () => {
+      if (!active || !window.qt?.webChannelTransport || !window.QWebChannel) return;
+      new window.QWebChannel(window.qt.webChannelTransport, (channel) => {
+        if (active) window.pyqtBridge = channel.objects.pyqtBridge;
+      });
+    };
+    if (window.qt?.webChannelTransport && !window.QWebChannel) {
+      pyqtChannelScript = document.createElement("script");
+      pyqtChannelScript.src = "qrc:///qtwebchannel/qwebchannel.js";
+      pyqtChannelScript.onload = connectPyQtChannel;
+      document.head.appendChild(pyqtChannelScript);
+    } else {
+      connectPyQtChannel();
+    }
+
     return () => {
       active = false;
+      pyqtChannelScript?.remove();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOnline);
       window.removeEventListener("message", handleNativeLogs);
       delete window.updateBrowserAddressBar;
+      delete window.pyqtBridge;
     };
   }, []);
 
-  const handleExecute = (code) => {
-    const audit = auditScriptSecurityRisks(code);
-    if (
-      audit.isHighRisk &&
-      !window.confirm(
-        `🛡️ SECURITY SHIELD WARNING:\n\n${audit.warnings.join("\n\n")}\n\nRun script anyway?`,
-      )
-    ) {
+  const handleExecute = async (code, scriptTitle = "Quick script") => {
+    const checked = validateBookmarkletRequest({ title: scriptTitle, source: code });
+    if (!checked.valid) {
+      appendToConsole("error", checked.error);
       return;
     }
+
+    const request = checked.request;
+    const audit = auditScriptSecurityRisks(request.source);
+    if (audit.findings.length) {
+      appendToConsole(
+        "warning",
+        "Static review findings (not a safety verdict): " +
+          audit.warnings.join(" "),
+      );
+    }
+
+    // Native shells display the authoritative confirmation dialog and validate
+    // the active page again immediately before execution.
     if (window.webkit?.messageHandlers?.bookmarkletBridge) {
-      window.webkit.messageHandlers.bookmarkletBridge.postMessage(code);
+      window.webkit.messageHandlers.bookmarkletBridge.postMessage(request);
     } else if (window.browserAPI?.runBookmarklet) {
-      window.browserAPI.runBookmarklet(code);
+      try {
+        const result = await window.browserAPI.runBookmarklet(request);
+        appendToConsole(
+          result?.ok ? "info" : "warning",
+          result?.ok ? "Bookmarklet executed." : "Bookmarklet was not executed: " + (result?.reason || "request rejected"),
+        );
+      } catch (error) {
+        appendToConsole("error", "Bookmarklet bridge failed: " + error.message);
+      }
     } else if (window.pyqtBridge?.execute) {
-      window.pyqtBridge.execute(code);
+      window.pyqtBridge.execute(JSON.stringify(request));
     } else {
       appendToConsole("info", "No native execution bridge; script was not executed.");
     }
@@ -194,16 +234,19 @@ export default function App() {
 
   const handleSave = async (event) => {
     event.preventDefault();
-    const result = processAndValidateBookmarklet(rawCode);
-    if (!result.isValid) {
-      setValidationError(result.error || "The script did not pass validation.");
+    const result = createBookmarkletRecord({ title, category, rawCode });
+    if (!result.valid) {
+      setValidationError(result.error || "The bookmarklet record did not pass validation.");
       return;
     }
     await db.bookmarklets.add({
-      title: title.trim(),
-      category: category.trim() || "General",
+      title: result.record.title,
+      category: result.record.category,
       rawCode,
-      cleanCode: result.cleanCode,
+      cleanCode: result.record.source,
+      sourceLength: result.record.sourceLength,
+      schemaVersion: result.record.schemaVersion,
+      updatedAt: result.record.updatedAt,
     });
     setTitle("");
     setRawCode("");
@@ -213,16 +256,23 @@ export default function App() {
 
   const handleUpdate = async (event) => {
     event.preventDefault();
-    const result = processAndValidateBookmarklet(editRawCode);
-    if (!result.isValid) {
-      setEditError(result.error || "The script did not pass validation.");
+    const result = createBookmarkletRecord({
+      title: editTitle,
+      category: editCategory,
+      rawCode: editRawCode,
+    });
+    if (!result.valid) {
+      setEditError(result.error || "The bookmarklet record did not pass validation.");
       return;
     }
     await db.bookmarklets.update(editingId, {
-      title: editTitle.trim(),
-      category: editCategory.trim() || "General",
+      title: result.record.title,
+      category: result.record.category,
       rawCode: editRawCode,
-      cleanCode: result.cleanCode,
+      cleanCode: result.record.source,
+      sourceLength: result.record.sourceLength,
+      schemaVersion: result.record.schemaVersion,
+      updatedAt: result.record.updatedAt,
     });
     setEditingId(null);
     setEditError("");
@@ -260,13 +310,20 @@ export default function App() {
           ) {
             continue;
           }
-          const result = processAndValidateBookmarklet(item.rawCode);
-          if (!result.isValid) continue;
-          await db.bookmarklets.add({
+          const result = createBookmarkletRecord({
             title: item.title,
             category: typeof item.category === "string" ? item.category : "General",
             rawCode: item.rawCode,
-            cleanCode: result.cleanCode,
+          });
+          if (!result.valid) continue;
+          await db.bookmarklets.add({
+            title: result.record.title,
+            category: result.record.category,
+            rawCode: item.rawCode,
+            cleanCode: result.record.source,
+            sourceLength: result.record.sourceLength,
+            schemaVersion: result.record.schemaVersion,
+            updatedAt: result.record.updatedAt,
           });
         }
         appendToConsole("info", "Backup import completed; invalid records were skipped.");
@@ -305,7 +362,7 @@ export default function App() {
       appendToConsole("error", result.error || "Script validation failed.");
       return;
     }
-    handleExecute(result.cleanCode);
+    handleExecute(result.cleanCode, "Quick script");
   };
 
   const handleClearCache = () => {
@@ -328,87 +385,9 @@ export default function App() {
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ margin: "0 0 4px" }}>Loonakulf Browser</h1>
         <p style={{ margin: 0, color: "#5f6368" }}>
-          Browser controls, local bookmarklets and platform diagnostics
+          Your bookmarklet workspace — create, inspect, organize and run personal web tools on the active page
         </p>
       </header>
-
-      <section
-        style={{
-          ...panelStyle,
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          alignItems: "center",
-        }}
-      >
-        <button style={buttonStyle} onClick={() => sendNavAction("BACK")}>◀</button>
-        <button style={buttonStyle} onClick={() => sendNavAction("FORWARD")}>▶</button>
-        <button style={buttonStyle} onClick={() => sendNavAction("RELOAD")}>↻</button>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            sendNavAction("GOTO", inputUrl);
-          }}
-          style={{ display: "flex", flex: "1 1 320px", gap: 6 }}
-        >
-          <input
-            aria-label="Website address"
-            style={{ flex: 1, minWidth: 120, padding: 8 }}
-            value={inputUrl}
-            onChange={(event) => setInputUrl(event.target.value)}
-          />
-          <button style={buttonStyle} type="submit">Go</button>
-        </form>
-        <select
-          aria-label="User-Agent profile"
-          value={activeUaKey}
-          onChange={(event) => handleUaChange(event.target.value)}
-          style={{ padding: 8 }}
-        >
-          {Object.entries(UA_PROFILES).map(([key, profile]) => (
-            <option key={key} value={key}>{profile.label}</option>
-          ))}
-        </select>
-      </section>
-
-      <section style={panelStyle} aria-labelledby="platform-heading">
-        <h2 id="platform-heading" style={{ marginTop: 0 }}>Platform intelligence</h2>
-        {platform ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 12,
-            }}
-          >
-            <div><strong>Browser</strong><div>{platform.browser.name} {platform.browser.version || ""}</div></div>
-            <div><strong>Engine</strong><div>{platform.engine.name} {platform.engine.version || ""}</div></div>
-            <div><strong>Operating system</strong><div>{platform.os.name} {platform.os.version || ""}</div></div>
-            <div><strong>Device</strong><div>{[platform.device.vendor, platform.device.model].filter(Boolean).join(" ") || "Unidentified"} ({platform.device.type})</div></div>
-            <div><strong>CPU</strong><div>{platform.cpu.architecture || "Not exposed"}</div></div>
-            <div><strong>Detection source</strong><div>{platform.browser.source}</div></div>
-          </div>
-        ) : <p>Detecting this runtime…</p>}
-        {capabilities && (
-          <p style={{ marginBottom: 0, color: "#5f6368" }}>
-            Runtime: touch {capabilities.touch ? "yes" : "no"} · online {capabilities.online === null ? "unknown" : capabilities.online ? "yes" : "no"} · service worker {capabilities.serviceWorker ? "yes" : "no"} · Client Hints {capabilities.userAgentData ? "yes" : "no"}
-          </p>
-        )}
-        <button
-          type="button"
-          style={buttonStyle}
-          onClick={async () => {
-            setHighEntropyEnabled(true);
-            const hints = await getUserAgentClientHints(window.navigator, { includeHighEntropy: true });
-            setPlatform(parseUserAgent(window.navigator.userAgent, hints || {}));
-          }}
-        >
-          {highEntropyEnabled ? "Refresh detailed device hints" : "Request detailed device hints"}
-        </button>
-        <p style={{ color: "#6b7280", fontSize: 12, marginBottom: 0 }}>
-          Diagnostic signals only. Detailed device hints are requested only after you select the button; User-Agent data is not device identity or an authorization signal.
-        </p>
-      </section>
 
       <div
         style={{
@@ -417,6 +396,112 @@ export default function App() {
           gap: 16,
         }}
       >
+        <section style={panelStyle}>
+          <h2 style={{ marginTop: 0 }}>Bookmarklet library</h2>
+          <input
+            aria-label="Search bookmarklets"
+            placeholder="Search by title…"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            style={{ width: "100%", boxSizing: "border-box", padding: 8, marginBottom: 8 }}
+          />
+          <select
+            aria-label="Filter bookmarklets by category"
+            value={selectedCategory}
+            onChange={(event) => setSelectedCategory(event.target.value)}
+            style={{ width: "100%", padding: 8, marginBottom: 10 }}
+          >
+            {categories.map((value) => <option key={value} value={value}>{value === "ALL" ? "All categories" : value}</option>)}
+          </select>
+          {filtered.length === 0 && <p>No bookmarklets match this filter.</p>}
+          <div style={{ maxHeight: 520, overflowY: "auto" }}>
+            {filtered.map((item) => (
+              <article key={item.id} style={{ border: "1px solid #e5e7eb", borderRadius: 6, padding: 10, marginBottom: 8 }}>
+                {editingId === item.id ? (
+                  <form onSubmit={handleUpdate}>
+                    <input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} required style={{ width: "100%", marginBottom: 6 }} />
+                    <input value={editCategory} onChange={(event) => setEditCategory(event.target.value)} style={{ width: "100%", marginBottom: 6 }} />
+                    <textarea value={editRawCode} onChange={(event) => setEditRawCode(event.target.value)} required rows={4} style={{ width: "100%" }} />
+                    {editError && <p role="alert" style={{ color: "#b42318" }}>{editError}</p>}
+                    <button type="submit" style={buttonStyle}>Save changes</button>
+                    <button type="button" style={buttonStyle} onClick={() => setEditingId(null)}>Cancel</button>
+                  </form>
+                ) : inspectingId === item.id ? (
+                  <div>
+                    <p style={{ color: "#6b7280", fontSize: 12 }}>
+                      The native shell will confirm the active page origin before execution.
+                    </p>
+                    <pre
+                      style={{
+                        maxHeight: 240,
+                        overflow: "auto",
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                        background: "#f3f4f6",
+                        padding: 10,
+                        borderRadius: 4,
+                        fontSize: 12,
+                      }}
+                    >
+                      {item.cleanCode}
+                    </pre>
+                    <strong>Static inspection</strong>
+                    {auditScriptSecurityRisks(item.cleanCode).findings.length === 0 ? (
+                      <p style={{ fontSize: 12, color: "#6b7280" }}>
+                        No heuristic findings. This does not establish that the script is safe.
+                      </p>
+                    ) : (
+                      <ul>
+                        {auditScriptSecurityRisks(item.cleanCode).findings.map((finding) => (
+                          <li key={finding.id}>{finding.message}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <button style={buttonStyle} onClick={() => handleExecute(item.cleanCode, item.title)}>
+                      Run after native confirmation
+                    </button>
+                    <button style={buttonStyle} onClick={() => setInspectingId(null)}>
+                      Close inspector
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                      <strong>{item.title}</strong>
+                      <span style={{ color: "#6b7280", fontSize: 12 }}>{item.category || "General"}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                      <button style={buttonStyle} onClick={() => setInspectingId(item.id)}>Inspect</button>
+                      <button style={buttonStyle} onClick={() => handleExecute(item.cleanCode, item.title)}>Run</button>
+                      <button
+                        style={buttonStyle}
+                        onClick={() => {
+                          setEditingId(item.id);
+                          setEditTitle(item.title);
+                          setEditCategory(item.category || "General");
+                          setEditRawCode(item.rawCode);
+                          setEditError("");
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        style={buttonStyle}
+                        onClick={async () => {
+                          if (window.confirm(`Delete “${item.title}” from local storage?`)) {
+                            await db.bookmarklets.delete(item.id);
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
         <section>
           <div style={{ ...panelStyle, display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button style={buttonStyle} onClick={handleExport}>📤 Export</button>
@@ -501,74 +586,96 @@ export default function App() {
           </form>
         </section>
 
-        <section style={panelStyle}>
-          <h2 style={{ marginTop: 0 }}>Bookmarklet library</h2>
-          <input
-            aria-label="Search bookmarklets"
-            placeholder="Search by title…"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            style={{ width: "100%", boxSizing: "border-box", padding: 8, marginBottom: 8 }}
-          />
-          <select
-            aria-label="Filter bookmarklets by category"
-            value={selectedCategory}
-            onChange={(event) => setSelectedCategory(event.target.value)}
-            style={{ width: "100%", padding: 8, marginBottom: 10 }}
-          >
-            {categories.map((value) => <option key={value} value={value}>{value === "ALL" ? "All categories" : value}</option>)}
-          </select>
-          {filtered.length === 0 && <p>No bookmarklets match this filter.</p>}
-          <div style={{ maxHeight: 520, overflowY: "auto" }}>
-            {filtered.map((item) => (
-              <article key={item.id} style={{ border: "1px solid #e5e7eb", borderRadius: 6, padding: 10, marginBottom: 8 }}>
-                {editingId === item.id ? (
-                  <form onSubmit={handleUpdate}>
-                    <input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} required style={{ width: "100%", marginBottom: 6 }} />
-                    <input value={editCategory} onChange={(event) => setEditCategory(event.target.value)} style={{ width: "100%", marginBottom: 6 }} />
-                    <textarea value={editRawCode} onChange={(event) => setEditRawCode(event.target.value)} required rows={4} style={{ width: "100%" }} />
-                    {editError && <p role="alert" style={{ color: "#b42318" }}>{editError}</p>}
-                    <button type="submit" style={buttonStyle}>Save changes</button>
-                    <button type="button" style={buttonStyle} onClick={() => setEditingId(null)}>Cancel</button>
-                  </form>
-                ) : (
-                  <>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                      <strong>{item.title}</strong>
-                      <span style={{ color: "#6b7280", fontSize: 12 }}>{item.category || "General"}</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                      <button style={buttonStyle} onClick={() => handleExecute(item.cleanCode)}>Run</button>
-                      <button
-                        style={buttonStyle}
-                        onClick={() => {
-                          setEditingId(item.id);
-                          setEditTitle(item.title);
-                          setEditCategory(item.category || "General");
-                          setEditRawCode(item.rawCode);
-                          setEditError("");
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        style={buttonStyle}
-                        onClick={async () => {
-                          if (window.confirm(`Delete “${item.title}” from local storage?`)) {
-                            await db.bookmarklets.delete(item.id);
-                          }
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
+
       </div>
+
+      <details style={{ ...panelStyle, marginTop: 16 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+          Browser navigation and platform diagnostics
+        </summary>
+        <div style={{ marginTop: 12 }}>
+      <section
+        style={{
+          ...panelStyle,
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          alignItems: "center",
+        }}
+      >
+        <button style={buttonStyle} onClick={() => sendNavAction("BACK")}>◀</button>
+        <button style={buttonStyle} onClick={() => sendNavAction("FORWARD")}>▶</button>
+        <button style={buttonStyle} onClick={() => sendNavAction("RELOAD")}>↻</button>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            sendNavAction("GOTO", inputUrl);
+          }}
+          style={{ display: "flex", flex: "1 1 320px", gap: 6 }}
+        >
+          <input
+            aria-label="Website address"
+            style={{ flex: 1, minWidth: 120, padding: 8 }}
+            value={inputUrl}
+            onChange={(event) => setInputUrl(event.target.value)}
+          />
+          <button style={buttonStyle} type="submit">Go</button>
+        </form>
+        <select
+          aria-label="User-Agent profile"
+          value={activeUaKey}
+          onChange={(event) => handleUaChange(event.target.value)}
+          style={{ padding: 8 }}
+        >
+          {Object.entries(UA_PROFILES).map(([key, profile]) => (
+            <option key={key} value={key}>{profile.label}</option>
+          ))}
+        </select>
+      </section>
+
+      <section style={panelStyle} aria-labelledby="platform-heading">
+        <h2 id="platform-heading" style={{ marginTop: 0 }}>Platform intelligence</h2>
+        {platform ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <div><strong>Browser</strong><div>{platform.browser.name} {platform.browser.version || ""}</div></div>
+            <div><strong>Engine</strong><div>{platform.engine.name} {platform.engine.version || ""}</div></div>
+            <div><strong>Operating system</strong><div>{platform.os.name} {platform.os.version || ""}</div></div>
+            <div><strong>Device</strong><div>{[platform.device.vendor, platform.device.model].filter(Boolean).join(" ") || "Unidentified"} ({platform.device.type})</div></div>
+            <div><strong>CPU</strong><div>{platform.cpu.architecture || "Not exposed"}</div></div>
+            <div><strong>Detection source</strong><div>{platform.browser.source}</div></div>
+          </div>
+        ) : <p>Detecting this runtime…</p>}
+        {capabilities && (
+          <p style={{ marginBottom: 0, color: "#5f6368" }}>
+            Runtime: touch {capabilities.touch ? "yes" : "no"} · online {capabilities.online === null ? "unknown" : capabilities.online ? "yes" : "no"} · service worker {capabilities.serviceWorker ? "yes" : "no"} · Client Hints {capabilities.userAgentData ? "yes" : "no"}
+          </p>
+        )}
+        <button
+          type="button"
+          style={buttonStyle}
+          onClick={async () => {
+            setHighEntropyEnabled(true);
+            const hints = await getUserAgentClientHints(window.navigator, { includeHighEntropy: true });
+            setPlatform(parseUserAgent(window.navigator.userAgent, hints || {}));
+          }}
+        >
+          {highEntropyEnabled ? "Refresh detailed device hints" : "Request detailed device hints"}
+        </button>
+        <p style={{ color: "#6b7280", fontSize: 12, marginBottom: 0 }}>
+          Diagnostic signals only. Detailed device hints are requested only after you select the button; User-Agent data is not device identity or an authorization signal.
+        </p>
+      </section>
+
+        </div>
+      </details>
+
+
 
       <section style={{ ...panelStyle, background: "#1e1e1e", color: "#d1fae5" }}>
         <h2 style={{ marginTop: 0, color: "#fff" }}>Activity console</h2>
