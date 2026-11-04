@@ -50,8 +50,8 @@ Model output is displayed as text; it is never executed.
 - Bind the service to `127.0.0.1`, not `0.0.0.0`.
 - Keep the runtime endpoint loopback-only in Electron configuration.
 - Do not expose this service directly to the public internet.
-- The initial slice provides contextual assistance, not autonomous navigation,
-  form submission, bookmarklet execution, or agent delegation.
+- Multi-agent mode provides bounded text-only inference, not autonomous navigation,
+  form submission, bookmarklet execution, or general-purpose tool delegation.
 - Production deployment still needs authenticated local IPC/service lifecycle,
   rate limits, model-provider policy, privacy controls, and platform-specific
   bridge implementations for PyQt and Swift.
