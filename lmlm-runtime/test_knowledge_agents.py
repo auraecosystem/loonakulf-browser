@@ -6,6 +6,7 @@ from unittest.mock import patch
 from agent_coordinator import route_task
 from app import AssistRequest, build_messages
 from knowledge_store import delete_document, save_document, search_documents
+from multi_agent_runtime import select_specialists
 
 
 class KnowledgeStoreTests(unittest.TestCase):
@@ -51,6 +52,20 @@ class AgentCoordinatorTests(unittest.TestCase):
         self.assertEqual(plan["execution_mode"], "plan_only")
         self.assertEqual(plan["tools_invoked"], [])
         self.assertTrue(plan["requires_user_approval_for_actions"])
+
+
+class MultiAgentRuntimeTests(unittest.TestCase):
+    def test_specialist_selection_is_bounded_and_always_includes_security(self):
+        plan = route_task("Research and implement a secure browser runtime")
+        selected = select_specialists(plan)
+        names = [agent["id"] for agent in selected]
+        self.assertLessEqual(len(selected), 3)
+        self.assertIn("security", names)
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_unknown_agent_roles_are_not_executed(self):
+        selected = select_specialists({"selected_agents": [{"id": "shell"}, {"id": "security"}]})
+        self.assertEqual([agent["id"] for agent in selected], ["security"])
 
 
 if __name__ == "__main__":
