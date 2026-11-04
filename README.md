@@ -260,3 +260,26 @@ Security priorities:
 ## License
 
 A license file was not present in the repository when this README was refreshed. Confirm the project's intended license and add a root-level `LICENSE` file before publishing a license badge or accepting external contributions under a specific license.
+
+
+## LMLM intelligence
+
+Loonakulf Browser includes an opt-in Roda assistant backed by the LMLM runtime. In the Electron shell, the assistant can answer general questions or analyze active-page text when the user explicitly opts in for that request.
+
+Start the runtime in a separate terminal:
+
+```bash
+cd lmlm-runtime
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Example local OpenAI-compatible model server:
+export LMLM_MODEL_BASE_URL=http://127.0.0.1:1234/v1
+export LMLM_MODEL=your-local-model-id
+uvicorn app:app --host 127.0.0.1 --port 8765
+```
+
+Then start the shared React UI and Electron shell using the repository's development workflow. The Electron main process communicates with the runtime over loopback. Provider credentials stay in the runtime environment.
+
+See [LMLM runtime setup](lmlm-runtime/README.md) and [the multi-shell security boundary](docs/multishell-architecture.md). The first integration supports contextual assistance only; it does not grant the model autonomous navigation, form submission, downloads, wallet access, or arbitrary browser execution. PyQt and Swift adapters remain future work.
