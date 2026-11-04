@@ -27,10 +27,10 @@ const capabilities = detectCapabilities(window);
 ## Client Hints
 
 `getUserAgentClientHints(navigator)` reads low-entropy User-Agent Client
-Hints and requests architecture, model, platform version and full browser
-versions when the browser supports `getHighEntropyValues`. If permission or
-browser support is unavailable, it safely falls back to low-entropy values or
-returns `null`.
+Hints by default. High-entropy values (architecture, model, platform version
+and full browser versions) are requested only when the caller explicitly
+passes `{ includeHighEntropy: true }`. If permission or browser support is
+unavailable, it safely falls back to low-entropy values or returns `null`.
 
 High-entropy hints can expose additional device information. Request them only
 when needed, avoid persisting them by default, and explain collection to users
