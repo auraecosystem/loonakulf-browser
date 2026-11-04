@@ -71,6 +71,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const [inspectingId, setInspectingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editCategory, setEditCategory] = useState("General");
   const [editRawCode, setEditRawCode] = useState("");
@@ -425,6 +426,44 @@ export default function App() {
                     <button type="submit" style={buttonStyle}>Save changes</button>
                     <button type="button" style={buttonStyle} onClick={() => setEditingId(null)}>Cancel</button>
                   </form>
+                ) : inspectingId === item.id ? (
+                  <div>
+                    <p style={{ color: "#6b7280", fontSize: 12 }}>
+                      The native shell will confirm the active page origin before execution.
+                    </p>
+                    <pre
+                      style={{
+                        maxHeight: 240,
+                        overflow: "auto",
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                        background: "#f3f4f6",
+                        padding: 10,
+                        borderRadius: 4,
+                        fontSize: 12,
+                      }}
+                    >
+                      {item.cleanCode}
+                    </pre>
+                    <strong>Static inspection</strong>
+                    {auditScriptSecurityRisks(item.cleanCode).findings.length === 0 ? (
+                      <p style={{ fontSize: 12, color: "#6b7280" }}>
+                        No heuristic findings. This does not establish that the script is safe.
+                      </p>
+                    ) : (
+                      <ul>
+                        {auditScriptSecurityRisks(item.cleanCode).findings.map((finding) => (
+                          <li key={finding.id}>{finding.message}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <button style={buttonStyle} onClick={() => handleExecute(item.cleanCode, item.title)}>
+                      Run after native confirmation
+                    </button>
+                    <button style={buttonStyle} onClick={() => setInspectingId(null)}>
+                      Close inspector
+                    </button>
+                  </div>
                 ) : (
                   <>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
@@ -432,6 +471,7 @@ export default function App() {
                       <span style={{ color: "#6b7280", fontSize: 12 }}>{item.category || "General"}</span>
                     </div>
                     <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                      <button style={buttonStyle} onClick={() => setInspectingId(item.id)}>Inspect</button>
                       <button style={buttonStyle} onClick={() => handleExecute(item.cleanCode, item.title)}>Run</button>
                       <button
                         style={buttonStyle}
