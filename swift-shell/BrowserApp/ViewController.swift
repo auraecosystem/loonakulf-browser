@@ -53,7 +53,7 @@ class ViewController: UIViewController, WKScriptMessageHandler, WKNavigationDele
               !host.isEmpty else {
             return false
         }
-        return scheme == "http" || scheme == "https"
+        return (scheme == "http" || scheme == "https") && url.user == nil && url.password == nil
     }
 
     private func originString(_ url: URL) -> String? {
