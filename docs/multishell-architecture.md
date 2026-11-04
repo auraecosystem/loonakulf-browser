@@ -34,7 +34,7 @@ Request high-entropy Client Hints only after a clear user action and only for a 
 
 ## Current implementation status
 
-- **Shared React UI:** the entry point and platform diagnostics exist, but `src/App.js` is absent on the audited default branch. The production UI build is therefore blocked until the component is restored. The bookmarklet-first shared validation helpers are documented separately.
+- **Shared React UI:** the feature branch restores `src/App.js` and the shared platform parser. The bookmarklet-first validation helpers are available, but CI build and runtime integration still require verification.
 - **Electron:** main/preload split and sender/payload checks exist. A native packaging manifest and complete desktop build pipeline are still needed.
 - **PyQt:** a basic two-view Qt container exists. Its current bridge forwards bookmarklet JavaScript directly to the target view; treat this as a prototype and do not ship it as a trusted production boundary.
 - **Swift:** a basic UIKit/WKWebView container exists. It still needs navigation policy, lifecycle cleanup, local asset/server strategy, and a hardened message contract before production use.
@@ -42,7 +42,7 @@ Request high-entropy Client Hints only after a clear user action and only for a 
 
 ## Recommended implementation sequence
 
-1. Restore and verify the shared React application entry component, then stabilize the build and regression tests.
+1. Verify the restored React application entry component, then stabilize the build and regression tests.
 2. Define and test a versioned bridge contract in the shared UI.
 3. Implement the contract in Electron first, keeping privileged methods allowlisted.
 4. Port the same contract to PyQt with strict origin and payload validation.
