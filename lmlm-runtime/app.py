@@ -5,20 +5,30 @@ It does not execute model output. Knowledge persistence requires explicit user c
 """
 from __future__ import annotations
 
+import hmac
 import json
 import os
 from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field, ConfigDict
 
 from agent_coordinator import route_task
 from knowledge_store import delete_document, save_document, search_documents
 from multi_agent_runtime import execute_specialists
 
-app = FastAPI(title="LMLM Browser Runtime", version="0.2.0")
+app = FastAPI(title="LMLM Browser Runtime", version="0.3.0")
+
+
+async def require_local_ipc_token(authorization: str | None = Header(default=None)) -> None:
+    expected = os.getenv("LMLM_IPC_TOKEN", "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="LMLM local IPC authentication is not configured.")
+    supplied = authorization or ""
+    if not hmac.compare_digest(supplied, f"Bearer {expected}"):
+        raise HTTPException(status_code=401, detail="Invalid LMLM local IPC credential.")
 
 
 class AssistRequest(BaseModel):
@@ -113,7 +123,7 @@ def build_messages(request: AssistRequest) -> list[dict[str, str]]:
     ]
 
 
-@app.post("/v1/knowledge")
+@app.post("/v1/knowledge", dependencies=[Depends(require_local_ipc_token)])
 async def add_knowledge(request: KnowledgeSaveRequest) -> dict[str, Any]:
     if request.confirm_save is not True:
         raise HTTPException(status_code=400, detail="Explicit save confirmation is required.")
@@ -121,26 +131,26 @@ async def add_knowledge(request: KnowledgeSaveRequest) -> dict[str, Any]:
     return {"saved": True, **saved}
 
 
-@app.get("/v1/knowledge/search")
+@app.get("/v1/knowledge/search", dependencies=[Depends(require_local_ipc_token)])
 async def find_knowledge(q: str = "") -> dict[str, Any]:
     if len(q) > 500:
         raise HTTPException(status_code=400, detail="Search query is too long.")
     return {"results": search_documents(q, limit=5)}
 
 
-@app.delete("/v1/knowledge/{document_id}")
+@app.delete("/v1/knowledge/{document_id}", dependencies=[Depends(require_local_ipc_token)])
 async def remove_knowledge(document_id: str) -> dict[str, bool]:
     if len(document_id) > 64:
         raise HTTPException(status_code=400, detail="Invalid document identifier.")
     return {"deleted": delete_document(document_id)}
 
 
-@app.post("/v1/agents/plan")
+@app.post("/v1/agents/plan", dependencies=[Depends(require_local_ipc_token)])
 async def plan_agents(request: AssistRequest) -> dict[str, Any]:
     return route_task(request.prompt)
 
 
-@app.post("/v1/agents/execute")
+@app.post("/v1/agents/execute", dependencies=[Depends(require_local_ipc_token)])
 async def execute_agents(request: AssistRequest) -> dict[str, Any]:
     if not provider_configured():
         raise HTTPException(
@@ -168,7 +178,7 @@ async def health() -> dict[str, Any]:
     }
 
 
-@app.post("/v1/assist")
+@app.post("/v1/assist", dependencies=[Depends(require_local_ipc_token)])
 async def assist(request: AssistRequest) -> dict[str, str]:
     base_url = os.getenv("LMLM_MODEL_BASE_URL", "").strip().rstrip("/")
     if not base_url:
