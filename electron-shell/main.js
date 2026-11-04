@@ -1,5 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
+const { startLmlmRuntime, stopLmlmRuntime } = require("./lmlm-runtime-manager");
+
+let managedLmlmRuntime = null;
 const { isValidUserAgent } = require("./platform");
 
 let mainWindow;
@@ -213,7 +216,7 @@ ipcMain.on("native-set-proxy-config", (event, payload) => {
 // LMLM is reached only through this loopback-only runtime URL. The renderer
 // never receives model-provider credentials or an arbitrary network primitive.
 function getLmlmRuntimeBaseUrl() {
-  const configured = process.env.LMLM_RUNTIME_URL || "http://127.0.0.1:8765";
+  const configured = (managedLmlmRuntime && managedLmlmRuntime.url) || process.env.LMLM_RUNTIME_URL || "http://127.0.0.1:8765";
   try {
     const url = new URL(configured);
     const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
@@ -231,7 +234,7 @@ async function requestLmlm(pathname, options = {}, timeoutMs = 60000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const ipcToken = process.env.LMLM_IPC_TOKEN || "";
+    const ipcToken = (managedLmlmRuntime && managedLmlmRuntime.token) || process.env.LMLM_IPC_TOKEN || "";
     const headers = {
       ...(options.headers || {}),
       ...(ipcToken ? { Authorization: "Bearer " + ipcToken } : {}),
@@ -360,7 +363,18 @@ ipcMain.handle("lmlm:assist", async (event, payload) => {
   }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  try {
+    managedLmlmRuntime = await startLmlmRuntime(app);
+  } catch (error) {
+    console.error("[LMLM] Runtime startup failed:", error.message || error);
+  }
+  createWindow();
+});
+app.on("before-quit", () => {
+  stopLmlmRuntime(managedLmlmRuntime);
+  managedLmlmRuntime = null;
+});
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
