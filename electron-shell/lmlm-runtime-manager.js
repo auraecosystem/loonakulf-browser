@@ -69,7 +69,7 @@ async function startLmlmRuntime(electronApp) {
   const runtimeDir = process.env.LMLM_RUNTIME_DIR ||
     (electronApp.isPackaged
       ? path.join(process.resourcesPath, "lmlm-runtime")
-      : path.join(electronApp.getAppPath(), "lmlm-runtime"));
+      : path.join(__dirname, "..", "lmlm-runtime"));
   if (!fs.existsSync(path.join(runtimeDir, "app.py"))) {
     throw new Error("LMLM runtime files were not found at " + runtimeDir);
   }
