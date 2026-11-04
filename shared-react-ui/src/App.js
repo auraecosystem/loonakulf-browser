@@ -1,29 +1,28 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
 import {
-  auditScriptSecurityRisks,
   processAndValidateBookmarklet,
+  auditScriptSecurityRisks,
 } from "./parser";
 import {
-  detectCapabilities,
-  getUserAgentClientHints,
   parseUserAgent,
-} from "./platform";
+  detectCapabilities,
+} from "./platform/ua-parser";
 
 const UA_PROFILES = {
   DESKTOP_CHROME: {
-    label: "🖥️ Desktop Chrome",
+    label: "Desktop Chrome",
     string:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
   },
   IPHONE_CHROME: {
-    label: "📱 iPhone Chrome (iOS)",
+    label: "iPhone Chrome (iOS 27)",
     string:
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1",
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 27_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1",
   },
   IPHONE_SAFARI: {
-    label: "🍏 iPhone Safari",
+    label: "iPhone Safari",
     string:
       "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
   },
@@ -71,90 +70,76 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
-  const [editCategory, setEditCategory] = useState("General");
+  const [editCategory, setEditCategory] = useState("");
   const [editRawCode, setEditRawCode] = useState("");
   const [editError, setEditError] = useState("");
   const [scratchpadCode, setScratchpadCode] = useState("");
   const [proxyIp, setProxyIp] = useState("");
   const [proxyPort, setProxyPort] = useState("");
   const [isProxyActive, setIsProxyActive] = useState(false);
-  const [platform, setPlatform] = useState(null);
-  const [capabilities, setCapabilities] = useState(null);
-  const [highEntropyEnabled, setHighEntropyEnabled] = useState(false);
-
   const bookmarklets = useLiveQuery(() => db.bookmarklets.toArray(), []) || [];
-  const categories = useMemo(
-    () => ["ALL", ...new Set(bookmarklets.map((item) => item.category || "General"))],
-    [bookmarklets],
-  );
-  const filtered = useMemo(
-    () =>
-      bookmarklets.filter(
-        (item) =>
-          (selectedCategory === "ALL" ||
-            (item.category || "General") === selectedCategory) &&
-          String(item.title || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()),
-      ),
-    [bookmarklets, selectedCategory, searchQuery],
+
+  const actualUa = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const detectedPlatform = useMemo(() => parseUserAgent(actualUa), [actualUa]);
+  const capabilities = useMemo(
+    () => detectCapabilities(typeof window !== "undefined" ? window : null),
+    []
   );
 
-  const appendToConsole = (type, message) => {
+  const appendToConsole = useCallback((type, message) => {
     setLogs((previous) =>
       [
         {
-          id: `${Date.now()}-${Math.random()}`,
+          id: Date.now() + Math.random(),
           timestamp: new Date().toLocaleTimeString(),
           type,
           text: String(message),
         },
         ...previous,
-      ].slice(0, 50),
+      ].slice(0, 50)
     );
-  };
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    const refreshPlatform = async (includeHighEntropy = false) => {
-      const hints = await getUserAgentClientHints(window.navigator, { includeHighEntropy });
-      if (!active) return;
-      setPlatform(parseUserAgent(window.navigator.userAgent, hints || {}));
-      setCapabilities(detectCapabilities(window));
-    };
-    refreshPlatform(false);
-    const handleOnline = () => setCapabilities(detectCapabilities(window));
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOnline);
-    const handleNativeLogs = (event) => {
-      if (event.data?.type === "NATIVE_CONSOLE_LOG") {
-        appendToConsole(event.data.logType, event.data.message);
-      }
-    };
-    window.addEventListener("message", handleNativeLogs);
-    window.updateBrowserAddressBar = (url) => {
+    const handleAddress = (url) => {
       setCurrentUrl(url);
       setInputUrl(url);
     };
+    const handleNativeLogs = (event) => {
+      const payload = event.data;
+      if (payload && payload.type === "NATIVE_CONSOLE_LOG") {
+        appendToConsole(payload.logType || "log", payload.message || "");
+      }
+    };
+
+    window.updateBrowserAddressBar = handleAddress;
+    window.addEventListener("message", handleNativeLogs);
+    const removeUrlListener = window.browserAPI?.onTargetUrlChanged?.(handleAddress);
+    const removeLogListener = window.browserAPI?.onRuntimeConsoleLog?.((entry) =>
+      appendToConsole(entry.type || "log", entry.message || "")
+    );
+
     return () => {
-      active = false;
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOnline);
       window.removeEventListener("message", handleNativeLogs);
+      if (typeof removeUrlListener === "function") removeUrlListener();
+      if (typeof removeLogListener === "function") removeLogListener();
       delete window.updateBrowserAddressBar;
     };
-  }, []);
+  }, [appendToConsole]);
 
   const handleExecute = (code) => {
     const audit = auditScriptSecurityRisks(code);
     if (
       audit.isHighRisk &&
       !window.confirm(
-        `🛡️ SECURITY SHIELD WARNING:\n\n${audit.warnings.join("\n\n")}\n\nRun script anyway?`,
+        "SECURITY WARNING\n\n" +
+          audit.warnings.join("\n\n") +
+          "\n\nRun this script anyway?"
       )
     ) {
       return;
     }
+
     if (window.webkit?.messageHandlers?.bookmarkletBridge) {
       window.webkit.messageHandlers.bookmarkletBridge.postMessage(code);
     } else if (window.browserAPI?.runBookmarklet) {
@@ -162,33 +147,34 @@ export default function App() {
     } else if (window.pyqtBridge?.execute) {
       window.pyqtBridge.execute(code);
     } else {
-      appendToConsole("info", "No native execution bridge; script was not executed.");
+      appendToConsole("info", "No native browser bridge is connected.");
     }
   };
 
-  const sendNavAction = (action, targetUrl) => {
-    if (action === "GOTO") {
-      const safeUrl = normalizeNavigationUrl(targetUrl);
-      if (!safeUrl) {
-        appendToConsole("error", "Only valid HTTP and HTTPS navigation URLs are allowed.");
-        return;
-      }
-      if (window.browserAPI?.sendNavAction) {
-        window.browserAPI.sendNavAction({ action, url: safeUrl });
-      } else {
-        appendToConsole("info", "Navigation bridge is unavailable in this environment.");
-      }
-      setCurrentUrl(safeUrl);
-      setInputUrl(safeUrl);
+  const sendNavAction = (action, targetUrl = null) => {
+    if (action === "GOTO" && targetUrl) {
+      const destination = /^(https?:\/\/)/i.test(targetUrl)
+        ? targetUrl
+        : "https://" + targetUrl;
+      setCurrentUrl(destination);
+      setInputUrl(destination);
+      window.browserAPI?.sendNavAction?.({
+        type: "BROWSER_ACTION",
+        action,
+        url: destination,
+      });
       return;
     }
-    window.browserAPI?.sendNavAction?.({ action });
+    window.browserAPI?.sendNavAction?.({ type: "BROWSER_ACTION", action });
   };
 
   const handleUaChange = (key) => {
+    const profile = UA_PROFILES[key];
+    if (!profile) return;
     setActiveUaKey(key);
     window.browserAPI?.setUserAgent?.({
-      uaString: UA_PROFILES[key].string,
+      type: "SET_USER_AGENT",
+      uaString: profile.string,
     });
   };
 
@@ -196,7 +182,7 @@ export default function App() {
     event.preventDefault();
     const result = processAndValidateBookmarklet(rawCode);
     if (!result.isValid) {
-      setValidationError(result.error || "The script did not pass validation.");
+      setValidationError(result.error);
       return;
     }
     await db.bookmarklets.add({
@@ -208,13 +194,13 @@ export default function App() {
     setTitle("");
     setRawCode("");
     setValidationError("");
-    appendToConsole("info", "Bookmarklet saved locally.");
   };
 
   const handleUpdate = async (event) => {
     event.preventDefault();
     const result = processAndValidateBookmarklet(editRawCode);
     if (!result.isValid) {
+      setEditError(result.error);
       setEditError(result.error || "The script did not pass validation.");
       return;
     }
@@ -233,14 +219,14 @@ export default function App() {
     const records = await db.bookmarklets.toArray();
     const blob = new Blob(
       [JSON.stringify({ version: 1, data: records }, null, 2)],
-      { type: "application/json" },
+      { type: "application/json" }
     );
-    const objectUrl = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = "loonakulf-bookmarklets-backup.json";
+    anchor.href = url;
+    anchor.download = "loonakulf-bookmarklets.json";
     anchor.click();
-    URL.revokeObjectURL(objectUrl);
+    URL.revokeObjectURL(url);
   };
 
   const handleImport = (event) => {
@@ -249,6 +235,29 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async () => {
       try {
+        const parsed = JSON.parse(String(reader.result));
+        if (!Array.isArray(parsed.data)) {
+          throw new Error("Backup must contain a data array.");
+        }
+        const records = parsed.data
+          .filter(
+            (item) =>
+              item &&
+              typeof item.title === "string" &&
+              typeof item.rawCode === "string"
+          )
+          .map((item) => ({
+            title: item.title,
+            category:
+              typeof item.category === "string" ? item.category : "General",
+            rawCode: item.rawCode,
+            cleanCode:
+              typeof item.cleanCode === "string" ? item.cleanCode : item.rawCode,
+          }));
+        await db.bookmarklets.bulkAdd(records);
+        appendToConsole("info", "Imported " + records.length + " bookmarklets.");
+      } catch (error) {
+        appendToConsole("error", "Import failed: " + error.message);
         const parsed = JSON.parse(String(reader.result || ""));
         if (parsed.version !== 1 || !Array.isArray(parsed.data)) {
           throw new Error("Unsupported backup format.");
@@ -275,8 +284,33 @@ export default function App() {
       } finally {
         event.target.value = "";
       }
+      event.target.value = "";
     };
     reader.readAsText(file);
+  };
+
+  const handleProxySubmit = (event) => {
+    event.preventDefault();
+    const port = Number(proxyPort);
+    if (!proxyIp.trim() || !Number.isInteger(port) || port < 1 || port > 65535) {
+      appendToConsole("error", "Enter a valid proxy host and port.");
+      return;
+    }
+    window.browserAPI?.setProxyConfig?.({
+      enabled: true,
+      rules: "http=" + proxyIp.trim() + ":" + port + ";https=" + proxyIp.trim() + ":" + port,
+    });
+    setIsProxyActive(true);
+  };
+
+  const handleClearCache = () => {
+    window.browserAPI?.clearCacheData?.();
+  };
+
+  const handleInstantInject = () => {
+    const result = processAndValidateBookmarklet(scratchpadCode);
+    if (!result.isValid) {
+      appendToConsole("error", result.error);
   };
 
   const handleProxySubmit = (event) => {
@@ -308,10 +342,15 @@ export default function App() {
     handleExecute(result.cleanCode);
   };
 
-  const handleClearCache = () => {
-    window.browserAPI?.clearCacheData?.();
-    appendToConsole("info", "Cache clear requested.");
-  };
+  const filtered = bookmarklets.filter(
+    (item) =>
+      (selectedCategory === "ALL" || item.category === selectedCategory) &&
+      item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const categories = [
+    "ALL",
+    ...new Set(bookmarklets.map((item) => item.category).filter(Boolean)),
+  ];
 
   return (
     <main
@@ -321,44 +360,25 @@ export default function App() {
         maxWidth: 1200,
         margin: "0 auto",
         background: "#f8f9fa",
+        color: "#212529",
         minHeight: "100vh",
-        color: "#202124",
       }}
     >
-      <header style={{ marginBottom: 16 }}>
-        <h1 style={{ margin: "0 0 4px" }}>Loonakulf Browser</h1>
-        <p style={{ margin: 0, color: "#5f6368" }}>
-          Browser controls, local bookmarklets and platform diagnostics
-        </p>
-      </header>
-
-      <section
-        style={{
-          ...panelStyle,
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          alignItems: "center",
-        }}
-      >
-        <button style={buttonStyle} onClick={() => sendNavAction("BACK")}>◀</button>
-        <button style={buttonStyle} onClick={() => sendNavAction("FORWARD")}>▶</button>
-        <button style={buttonStyle} onClick={() => sendNavAction("RELOAD")}>↻</button>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            sendNavAction("GOTO", inputUrl);
+      <h1>Loonakulf Browser</h1>
+      <section style={{ ...panelStyle, display: "flex", gap: 8, alignItems: "center" }}>
+        <button type="button" onClick={() => sendNavAction("BACK")}>Back</button>
+        <button type="button" onClick={() => sendNavAction("FORWARD")}>Forward</button>
+        <button type="button" onClick={() => sendNavAction("RELOAD")}>Reload</button>
+        <input
+          aria-label="Address"
+          style={{ flex: 1, minWidth: 100, padding: 8 }}
+          value={inputUrl}
+          onChange={(event) => setInputUrl(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") sendNavAction("GOTO", inputUrl);
           }}
-          style={{ display: "flex", flex: "1 1 320px", gap: 6 }}
-        >
-          <input
-            aria-label="Website address"
-            style={{ flex: 1, minWidth: 120, padding: 8 }}
-            value={inputUrl}
-            onChange={(event) => setInputUrl(event.target.value)}
-          />
-          <button style={buttonStyle} type="submit">Go</button>
-        </form>
+        />
+        <button type="button" onClick={() => sendNavAction("GOTO", inputUrl)}>Go</button>
         <select
           aria-label="User-Agent profile"
           value={activeUaKey}
