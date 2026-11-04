@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
-import { validateBookmarkletRequest } from "./bookmarks/runtime";
+import { createBookmarkletRecord, validateBookmarkletRequest } from "./bookmarks/runtime";
 import {
   auditScriptSecurityRisks,
   processAndValidateBookmarklet,
@@ -233,16 +233,19 @@ export default function App() {
 
   const handleSave = async (event) => {
     event.preventDefault();
-    const result = processAndValidateBookmarklet(rawCode);
-    if (!result.isValid) {
-      setValidationError(result.error || "The script did not pass validation.");
+    const result = createBookmarkletRecord({ title, category, rawCode });
+    if (!result.valid) {
+      setValidationError(result.error || "The bookmarklet record did not pass validation.");
       return;
     }
     await db.bookmarklets.add({
-      title: title.trim(),
-      category: category.trim() || "General",
+      title: result.record.title,
+      category: result.record.category,
       rawCode,
-      cleanCode: result.cleanCode,
+      cleanCode: result.record.source,
+      sourceLength: result.record.sourceLength,
+      schemaVersion: result.record.schemaVersion,
+      updatedAt: result.record.updatedAt,
     });
     setTitle("");
     setRawCode("");
@@ -252,16 +255,23 @@ export default function App() {
 
   const handleUpdate = async (event) => {
     event.preventDefault();
-    const result = processAndValidateBookmarklet(editRawCode);
-    if (!result.isValid) {
-      setEditError(result.error || "The script did not pass validation.");
+    const result = createBookmarkletRecord({
+      title: editTitle,
+      category: editCategory,
+      rawCode: editRawCode,
+    });
+    if (!result.valid) {
+      setEditError(result.error || "The bookmarklet record did not pass validation.");
       return;
     }
     await db.bookmarklets.update(editingId, {
-      title: editTitle.trim(),
-      category: editCategory.trim() || "General",
+      title: result.record.title,
+      category: result.record.category,
       rawCode: editRawCode,
-      cleanCode: result.cleanCode,
+      cleanCode: result.record.source,
+      sourceLength: result.record.sourceLength,
+      schemaVersion: result.record.schemaVersion,
+      updatedAt: result.record.updatedAt,
     });
     setEditingId(null);
     setEditError("");
@@ -299,13 +309,20 @@ export default function App() {
           ) {
             continue;
           }
-          const result = processAndValidateBookmarklet(item.rawCode);
-          if (!result.isValid) continue;
-          await db.bookmarklets.add({
+          const result = createBookmarkletRecord({
             title: item.title,
             category: typeof item.category === "string" ? item.category : "General",
             rawCode: item.rawCode,
-            cleanCode: result.cleanCode,
+          });
+          if (!result.valid) continue;
+          await db.bookmarklets.add({
+            title: result.record.title,
+            category: result.record.category,
+            rawCode: item.rawCode,
+            cleanCode: result.record.source,
+            sourceLength: result.record.sourceLength,
+            schemaVersion: result.record.schemaVersion,
+            updatedAt: result.record.updatedAt,
           });
         }
         appendToConsole("info", "Backup import completed; invalid records were skipped.");
