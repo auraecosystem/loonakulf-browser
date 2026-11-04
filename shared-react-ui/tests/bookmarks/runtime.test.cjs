@@ -27,10 +27,16 @@ test("normalizes javascript: URLs without evaluating source", () => {
   assert.equal(result.source, "alert(document.title)");
 });
 
-test("preserves comments, formatting and percent-encoded source", () => {
+test("preserves raw source and decodes imported javascript URLs once", () => {
   const code = "/* keep this */\nconst url = '%2F'; // keep";
   assert.equal(normalizeBookmarkletSource(code).source, code);
   assert.equal(normalizeBookmarkletSource("%252F").source, "%252F");
+  assert.equal(normalizeBookmarkletSource("javascript:alert%281%29").source, "alert(1)");
+  assert.equal(
+    normalizeBookmarkletSource("javascript:const value = '%252F';").source,
+    "const value = '%2F';"
+  );
+  assert.equal(normalizeBookmarkletSource("javascript:alert%ZZ").valid, false);
 });
 
 test("rejects non-string, empty, control-character and oversized input", () => {
