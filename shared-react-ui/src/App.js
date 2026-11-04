@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
+import { validateBookmarkletRequest } from "./bookmarks/runtime";
 import {
   auditScriptSecurityRisks,
   processAndValidateBookmarklet,
@@ -145,22 +146,39 @@ export default function App() {
     };
   }, []);
 
-  const handleExecute = (code) => {
-    const audit = auditScriptSecurityRisks(code);
-    if (
-      audit.isHighRisk &&
-      !window.confirm(
-        `🛡️ SECURITY SHIELD WARNING:\n\n${audit.warnings.join("\n\n")}\n\nRun script anyway?`,
-      )
-    ) {
+  const handleExecute = async (code, scriptTitle = "Quick script") => {
+    const checked = validateBookmarkletRequest({ title: scriptTitle, source: code });
+    if (!checked.valid) {
+      appendToConsole("error", checked.error);
       return;
     }
+
+    const request = checked.request;
+    const audit = auditScriptSecurityRisks(request.source);
+    if (audit.findings.length) {
+      appendToConsole(
+        "warning",
+        "Static review findings (not a safety verdict): " +
+          audit.warnings.join(" "),
+      );
+    }
+
+    // Native shells display the authoritative confirmation dialog and validate
+    // the active page again immediately before execution.
     if (window.webkit?.messageHandlers?.bookmarkletBridge) {
-      window.webkit.messageHandlers.bookmarkletBridge.postMessage(code);
+      window.webkit.messageHandlers.bookmarkletBridge.postMessage(request);
     } else if (window.browserAPI?.runBookmarklet) {
-      window.browserAPI.runBookmarklet(code);
+      try {
+        const result = await window.browserAPI.runBookmarklet(request);
+        appendToConsole(
+          result?.ok ? "info" : "warning",
+          result?.ok ? "Bookmarklet executed." : "Bookmarklet was not executed: " + (result?.reason || "request rejected"),
+        );
+      } catch (error) {
+        appendToConsole("error", "Bookmarklet bridge failed: " + error.message);
+      }
     } else if (window.pyqtBridge?.execute) {
-      window.pyqtBridge.execute(code);
+      window.pyqtBridge.execute(JSON.stringify(request));
     } else {
       appendToConsole("info", "No native execution bridge; script was not executed.");
     }
@@ -305,7 +323,7 @@ export default function App() {
       appendToConsole("error", result.error || "Script validation failed.");
       return;
     }
-    handleExecute(result.cleanCode);
+    handleExecute(result.cleanCode, "Quick script");
   };
 
   const handleClearCache = () => {
@@ -538,7 +556,7 @@ export default function App() {
                       <span style={{ color: "#6b7280", fontSize: 12 }}>{item.category || "General"}</span>
                     </div>
                     <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                      <button style={buttonStyle} onClick={() => handleExecute(item.cleanCode)}>Run</button>
+                      <button style={buttonStyle} onClick={() => handleExecute(item.cleanCode, item.title)}>Run</button>
                       <button
                         style={buttonStyle}
                         onClick={() => {
