@@ -15,12 +15,20 @@ from typing import Any
 def database_path() -> Path:
     configured = os.getenv("LMLM_DATA_DIR", "").strip()
     root = Path(configured).expanduser() if configured else Path.home() / ".local" / "share" / "loonakulf" / "lmlm"
-    root.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not configured:
+        os.chmod(root, 0o700)
     return root / "knowledge.sqlite3"
 
 
 def connect() -> sqlite3.Connection:
-    connection = sqlite3.connect(database_path(), timeout=5)
+    path = database_path()
+    connection = sqlite3.connect(path, timeout=5)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        connection.close()
+        raise
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute(
