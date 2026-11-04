@@ -99,6 +99,24 @@ test("returns null when Client Hints are unavailable", async () => {
   assert.equal(await getUserAgentClientHints({}), null);
 });
 
+test("does not request high-entropy hints without explicit opt-in", async () => {
+  let requested = false;
+  const result = await getUserAgentClientHints({
+    userAgentData: {
+      brands: [{ brand: "Chromium", version: "130" }],
+      mobile: false,
+      platform: "Windows",
+      getHighEntropyValues: async () => {
+        requested = true;
+        return { architecture: "x86" };
+      }
+    }
+  });
+  assert.equal(requested, false);
+  assert.equal(result.platform, "Windows");
+  assert.equal(result.architecture, undefined);
+});
+
 test("falls back to low-entropy hints when high-entropy access fails", async () => {
   const result = await getUserAgentClientHints({
     userAgentData: {
