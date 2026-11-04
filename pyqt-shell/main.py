@@ -74,7 +74,9 @@ class PyQtBridge(QObject):
                 "Run \"" + title.strip() + "\" on " + target_origin + "?\n\n"
                 "This script runs with the active page's privileges. It may read "
                 "or modify page content and access data available to scripts on "
-                "this origin. Continue only if you trust the source."
+                "this origin. Continue only if you trust the source.\\n\\nSource preview:\\n"
+                + source[:600]
+                + ("…" if len(source) > 600 else "")
             ),
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
