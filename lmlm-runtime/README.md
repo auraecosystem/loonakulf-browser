@@ -25,8 +25,13 @@ uvicorn app:app --host 127.0.0.1 --port 8765
 For Windows PowerShell, use `$env:NAME="value"` instead of `export`.
 Set `LMLM_MODEL_API_KEY` only when the configured provider requires it.
 The key stays in the runtime process and is never sent to the browser renderer.
-Set the same `LMLM_IPC_TOKEN` in the Electron process environment; Electron
-sends it only from the main process as a bearer credential. Never put it in
+When Electron starts without `LMLM_RUNTIME_URL`, its main process launches
+this runtime on an OS-assigned loopback port, generates a fresh 256-bit bearer
+token in memory, passes the token only to the child process environment, and
+verifies the authenticated runtime before opening the browser window. The
+renderer never receives the token. Electron stops the managed runtime on quit.
+For an externally managed runtime, set `LMLM_RUNTIME_URL` and the matching
+`LMLM_IPC_TOKEN` in the Electron process environment. Never put tokens in
 renderer code, URLs, logs, or source control.
 
 ## Provider configuration
@@ -65,9 +70,10 @@ Model output is displayed as text; it is never executed.
 - Do not expose this service directly to the public internet.
 - Multi-agent mode provides bounded text-only inference, not autonomous navigation,
   form submission, bookmarklet execution, or general-purpose tool delegation.
-- The shared-token HTTP boundary is implemented; production packaging still needs
-  secure token provisioning/rotation, OS-level peer authentication, managed
-  service lifecycle, rate limits, provider policy, and PyQt/Swift bridges.
+- Electron-managed startup now provisions an ephemeral per-launch token and
+  manages the child process lifecycle. The token is rotated on each launch.
+  OS-level peer authentication, rate limits, provider policy, hardened packaged
+  Python distribution, and PyQt/Swift bridges remain outstanding.
 
 
 ## Local knowledge and agent routing
