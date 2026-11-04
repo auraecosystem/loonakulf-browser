@@ -105,7 +105,7 @@ async def execute_specialists(
                         client, base_url + "/chat/completions", headers, model, specialist_messages
                     )
                 return {"id": item["id"], "status": "completed", "output": output}
-            except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+            except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, RuntimeError) as exc:
                 return {
                     "id": item["id"],
                     "status": "failed",
