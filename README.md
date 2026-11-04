@@ -2,7 +2,7 @@
 
 # Loonakulf Browser
 
-**A shared browser experience with native desktop and mobile shells.**
+**A bookmarklet-first browser for building, organizing and running personal web tools across desktop and mobile shells.**
 
 [![CI](https://github.com/auraecosystem/loonakulf-browser/actions/workflows/ci-build-pipeline.yml/badge.svg?branch=main)](https://github.com/auraecosystem/loonakulf-browser/actions/workflows/ci-build-pipeline.yml)
 [![Platform](https://img.shields.io/badge/UI-React%2018-61DAFB?logo=react&logoColor=white)](shared-react-ui/)
@@ -19,7 +19,7 @@
 
 ## Overview
 
-Loonakulf Browser is a multi-shell browser project built around one shared React interface and platform-specific native containers.
+Loonakulf Browser is designed as a bookmarklet-first, multi-shell browser. Bookmarklets are a primary product primitive: users should be able to create, inspect, organize, test, run and export small tools for the active web page. A shared interface coordinates platform-specific native containers.
 
 The shared UI owns the browser-facing experience and reusable workflows. Native shells own platform lifecycle, web rendering, navigation policy and privileged operations. The goal is to avoid maintaining three separate browser interfaces while keeping platform-specific capabilities behind narrow, validated interfaces.
 
@@ -50,7 +50,7 @@ These are architecture illustrations, not screenshots of a completed native appl
 | Area | Current implementation |
 |---|---|
 | Shared browser UI | React 18 application and shared browser dashboard |
-| Bookmarklets | Existing bookmarklet management and execution workflows |
+| Bookmarklets | Local library and builder workflows, plus shared record validation and risk-inspection helpers |
 | Browser controls | Navigation, proxy and cache-control UI paths |
 | Platform intelligence | Browser, engine, OS, device and CPU identification |
 | Client Hints | Low-entropy hints and opt-in high-entropy retrieval with fallback |
@@ -191,7 +191,7 @@ npm run build
 npm run lint
 ```
 
-The CI workflow runs the platform regression suite and React production build. It also checks Electron source syntax. It does not yet produce signed native installers or prove end-to-end behavior in all three shells.
+The CI workflow is configured to run platform regression tests and a React production build. The feature branch restores the shared React application component and platform parser; CI must confirm the build before this work is considered validated. It also checks Electron source syntax. It does not yet produce signed native installers or prove end-to-end behavior in all three shells.
 
 ## Platform shells
 
@@ -215,7 +215,7 @@ The Swift shell uses UIKit and WKWebView. Its current script-message handler is 
 
 | Document | Description |
 |---|---|
-| [Multi-shell architecture](docs/multishell-architecture.md) | Shell responsibilities, bridge contract, security rules and implementation status |
+| [Bookmarklet-first architecture](docs/bookmarklet-first-architecture.md) | Product definition, shared runtime helpers, execution model and security requirements |\n| [Multi-shell architecture](docs/multishell-architecture.md) | Shell responsibilities, bridge contract, security rules and implementation status |
 | [Architecture notes](docs/architecture.md) | Existing architecture reference |
 | [Dependencies](docs/Dependencies.md) | Dependency and setup notes |
 | [User-Agent parser](docs/UA-parser.md) | Platform identity parsing |
@@ -236,7 +236,7 @@ The hosted preview is for the shared web UI. It does not package or emulate Elec
 
 | Milestone | Status |
 |---|---|
-| Shared React UI foundation | In progress |
+| Bookmarklet-first shared runtime helpers | Added; integration and security hardening in progress |\n| Shared React UI foundation | Restored on this feature branch; CI validation pending |
 | Platform intelligence and regression tests | Implemented; continued validation required |
 | React production build in CI | Must remain green |
 | Versioned shared bridge contract | Specified; implementation pending |
