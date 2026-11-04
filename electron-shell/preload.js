@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('browserAPI', {
-  runBookmarklet: (code) => ipcRenderer.send('execute-bookmarklet', code),
+  runBookmarklet: (request) => ipcRenderer.invoke("execute-bookmarklet", request),
   sendNavAction: (payload) => ipcRenderer.send('native-browser-control', payload),
   setUserAgent: (payload) => ipcRenderer.send('native-user-agent-toggle', payload),
   clearCacheData: () => ipcRenderer.send('native-clear-cache-data'),
