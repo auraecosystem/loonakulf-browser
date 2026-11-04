@@ -38,6 +38,7 @@ jobs:
       - name: Validate Electron JavaScript syntax
         run: |
           node --check electron-shell/main.js
+          node --check electron-shell/lmlm-runtime-manager.js
           node --check electron-shell/preload.js
           node --check electron-shell/platform.js
   test-lmlm-runtime:
