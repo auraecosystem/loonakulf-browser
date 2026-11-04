@@ -219,7 +219,8 @@ The Swift shell uses UIKit and WKWebView. The feature branch restricts UI naviga
 
 | Document | Description |
 |---|---|
-| [Bookmarklet-first architecture](docs/bookmarklet-first-architecture.md) | Product definition, shared runtime helpers, execution model and security requirements |\n| [Multi-shell architecture](docs/multishell-architecture.md) | Shell responsibilities, bridge contract, security rules and implementation status |
+| [Bookmarklet-first architecture](docs/bookmarklet-first-architecture.md) | Product definition, shared runtime helpers, execution model and security requirements |
+| [Multi-shell architecture](docs/multishell-architecture.md) | Shell responsibilities, bridge contract, security rules and implementation status |
 | [Architecture notes](docs/architecture.md) | Existing architecture reference |
 | [Dependencies](docs/Dependencies.md) | Dependency and setup notes |
 | [User-Agent parser](docs/UA-parser.md) | Platform identity parsing |
@@ -240,7 +241,8 @@ The hosted preview is for the shared web UI. It does not package or emulate Elec
 
 | Milestone | Status |
 |---|---|
-| Bookmarklet-first shared runtime helpers | Added; integration and security hardening in progress |\n| Shared React UI foundation | Restored on this feature branch; CI validation pending |
+| Bookmarklet-first shared runtime and native per-run consent | Implemented on feature branch; CI and end-to-end validation pending |
+| Shared React UI foundation | Restored on this feature branch; CI validation pending |
 | Platform intelligence and regression tests | Implemented; continued validation required |
 | React production build in CI | Must remain green |
 | Versioned shared bridge contract | Specified; implementation pending |
