@@ -50,7 +50,18 @@ These are architecture illustrations, not screenshots of a completed native appl
 
 **Important:** the PyQt and Swift bridges are prototypes, not production security boundaries. Native bookmarklet execution is privileged and requires explicit authorization and shell-side validation. See [security and architecture notes](docs/multishell-architecture.md).
 
-## Architecture
+## Loonakulf browser identity
+
+Loonakulf has its own product identity across the shared UI and native shells. The shared interface uses the original Loonakulf orbital-L mark, browser wordmark, favicon and web-app manifest. Electron, PyQt and WKWebView append the `Loonakulf/1.0.0` product token to their runtime User-Agent.
+
+The product token identifies the browser product; it does **not** claim a proprietary rendering engine. The underlying engine is detected and reported separately (for example, Blink in Electron/Qt WebEngine and WebKit in WKWebView). Engine compatibility tokens may remain in the User-Agent where required for website compatibility. UA and Client Hints remain advisory diagnostics, never authorization signals.
+
+Brand assets and shared identity configuration live in:
+- `shared-react-ui/src/brand/identity.js`
+- `shared-react-ui/src/brand/BrandHeader.js`
+- `shared-react-ui/public/loonakulf-mark.svg`
+- `shared-react-ui/public/favicon.svg`
+- `shared-react-ui/public/manifest.webmanifest`
 
 ### System context
 
