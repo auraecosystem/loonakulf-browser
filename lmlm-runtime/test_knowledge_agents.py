@@ -14,7 +14,7 @@ from app import app
 
 class ProviderConfigurationTests(unittest.TestCase):
     def test_single_model_readiness_requires_shared_endpoint(self):
-        with patch.dict(os.environ, {"LMLM_MODEL_BASE_URL": "", "LMLM_RESEARCH_BASE_URL": "http://research"}, clear=False):
+        with patch.dict(os.environ, {"LMLM_MODEL_BASE_URL": "", "LMLM_RESEARCH_BASE_URL": "http://research"}, clear=True):
             self.assertFalse(provider_configured())
 
     def test_multi_agent_readiness_requires_specialist_and_synthesis(self):
@@ -22,7 +22,7 @@ class ProviderConfigurationTests(unittest.TestCase):
             "LMLM_MODEL_BASE_URL": "",
             "LMLM_RESEARCH_BASE_URL": "http://research",
             "LMLM_SYNTHESIS_BASE_URL": "",
-        }, clear=False):
+        }, clear=True):
             self.assertFalse(multi_agent_provider_configured())
 
     def test_multi_agent_readiness_accepts_role_specific_endpoints(self):
@@ -30,7 +30,7 @@ class ProviderConfigurationTests(unittest.TestCase):
             "LMLM_MODEL_BASE_URL": "",
             "LMLM_RESEARCH_BASE_URL": "http://research",
             "LMLM_SYNTHESIS_BASE_URL": "http://synthesis",
-        }, clear=False):
+        }, clear=True):
             self.assertTrue(multi_agent_provider_configured())
 
 
