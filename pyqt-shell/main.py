@@ -58,7 +58,7 @@ class PyQtBridge(QObject):
             or not isinstance(source, str)
             or not source.strip()
             or len(source.encode("utf-8")) > MAX_BOOKMARKLET_BYTES
-            or any(ord(char) < 32 and char not in "\\t\\n\\r" for char in source)
+            or any(ord(char) < 32 and char not in "\t\n\r" for char in source)
         ):
             return
 
@@ -71,7 +71,7 @@ class PyQtBridge(QObject):
             self.target_browser,
             "Run bookmarklet?",
             (
-                "Run \"" + title.strip() + "\" on " + target_origin + "?\\n\\n"
+                "Run \"" + title.strip() + "\" on " + target_origin + "?\n\n"
                 "This script runs with the active page's privileges. It may read "
                 "or modify page content and access data available to scripts on "
                 "this origin. Continue only if you trust the source."
