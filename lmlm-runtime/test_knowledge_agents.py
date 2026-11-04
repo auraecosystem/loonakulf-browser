@@ -4,11 +4,34 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 from agent_coordinator import route_task
-from app import AssistRequest, build_messages
+from app import AssistRequest, build_messages, multi_agent_provider_configured, provider_configured
 from knowledge_store import delete_document, save_document, search_documents
 from multi_agent_runtime import select_specialists
 from httpx import ASGITransport, AsyncClient
 from app import app
+
+
+
+class ProviderConfigurationTests(unittest.TestCase):
+    def test_single_model_readiness_requires_shared_endpoint(self):
+        with patch.dict(os.environ, {"LMLM_MODEL_BASE_URL": "", "LMLM_RESEARCH_BASE_URL": "http://research"}, clear=False):
+            self.assertFalse(provider_configured())
+
+    def test_multi_agent_readiness_requires_specialist_and_synthesis(self):
+        with patch.dict(os.environ, {
+            "LMLM_MODEL_BASE_URL": "",
+            "LMLM_RESEARCH_BASE_URL": "http://research",
+            "LMLM_SYNTHESIS_BASE_URL": "",
+        }, clear=False):
+            self.assertFalse(multi_agent_provider_configured())
+
+    def test_multi_agent_readiness_accepts_role_specific_endpoints(self):
+        with patch.dict(os.environ, {
+            "LMLM_MODEL_BASE_URL": "",
+            "LMLM_RESEARCH_BASE_URL": "http://research",
+            "LMLM_SYNTHESIS_BASE_URL": "http://synthesis",
+        }, clear=False):
+            self.assertTrue(multi_agent_provider_configured())
 
 
 class KnowledgeStoreTests(unittest.TestCase):
