@@ -1,8 +1,8 @@
 # LMLM Browser Runtime
 
 A small loopback service that connects Loonakulf Browser to a configurable
-OpenAI-compatible inference endpoint, with opt-in local knowledge and a
-plan-only agent coordinator. It is not the complete LMLM autonomous-agent platform.
+OpenAI-compatible inference endpoint, with opt-in local knowledge, deterministic planning, and opt-in bounded
+multi-agent inference. It is not the complete LMLM autonomous-agent platform.
 
 ## Run
 
@@ -70,7 +70,7 @@ The runtime includes an explicit-consent SQLite knowledge store.
 
 **At-rest protection:** the initial SQLite store is local and uses restrictive filesystem permissions where supported, but it is not encrypted. Use full-disk encryption on the host and do not store highly sensitive material until application-level encryption and authenticated local IPC are implemented.
 
-The agent coordinator exposes `POST /v1/agents/plan`. It currently routes requests to research, engineering, security, and productivity perspectives. This is deterministic planning only: it does not launch independent models, call tools, execute code, or perform browser actions. Actions remain under host permissions and require explicit user approval.
+The agent coordinator exposes `POST /v1/agents/plan` for deterministic routing and `POST /v1/agents/execute` for opt-in inference. Multi-agent mode launches up to three allowlisted specialist requests (research, engineering, security, productivity) concurrently against the configured OpenAI-compatible provider, then runs a synthesis request. At least one specialist must succeed. Requests and outputs are bounded; specialist failures are reported without discarding successful results. This is model orchestration, not autonomous tool use: agents cannot browse, call tools, execute code, access files, or perform browser/OS actions. Electron keeps multi-agent mode opt-in and raises its request timeout for the extra inference round trips. The same configured model endpoint is used for all roles; per-role model routing is not yet implemented.
 
 Run tests with:
 
