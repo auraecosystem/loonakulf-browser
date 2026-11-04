@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from agent_coordinator import route_task
+from app import AssistRequest, build_messages
 from knowledge_store import delete_document, save_document, search_documents
 
 
@@ -16,6 +17,17 @@ class KnowledgeStoreTests(unittest.TestCase):
     def tearDown(self):
         self.env.stop()
         self.temp_dir.cleanup()
+
+    def test_assistant_retrieves_saved_content_only_when_opted_in(self):
+        save_document(
+            "Privacy reference",
+            "https://example.test/privacy",
+            "Browser permission privacy should be controlled by the user.",
+        )
+        enabled = build_messages(AssistRequest(prompt="permission privacy", use_knowledge=True))
+        disabled = build_messages(AssistRequest(prompt="permission privacy", use_knowledge=False))
+        self.assertIn("LOCAL KNOWLEDGE RESULTS", enabled[1]["content"])
+        self.assertNotIn("LOCAL KNOWLEDGE RESULTS", disabled[1]["content"])
 
     def test_explicitly_saved_document_can_be_searched_and_deleted(self):
         saved = save_document(
