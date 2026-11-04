@@ -67,6 +67,9 @@ The runtime includes an explicit-consent SQLite knowledge store.
 - Enable **Use my locally saved knowledge** to retrieve matching saved text in an assistant request. Retrieved text remains untrusted reference data.
 - API: `POST /v1/knowledge`, `GET /v1/knowledge/search?q=...`, and `DELETE /v1/knowledge/{document_id}`.
 
+
+**At-rest protection:** the initial SQLite store is local and uses restrictive filesystem permissions where supported, but it is not encrypted. Use full-disk encryption on the host and do not store highly sensitive material until application-level encryption and authenticated local IPC are implemented.
+
 The agent coordinator exposes `POST /v1/agents/plan`. It currently routes requests to research, engineering, security, and productivity perspectives. This is deterministic planning only: it does not launch independent models, call tools, execute code, or perform browser actions. Actions remain under host permissions and require explicit user approval.
 
 Run tests with:
