@@ -71,16 +71,7 @@ async def execute_specialists(
     plan: dict[str, Any],
 ) -> dict[str, Any]:
     """Run at most three text-only specialists and one synthesis call."""
-    base_url = os.getenv("LMLM_MODEL_BASE_URL", "").strip().rstrip("/")
-    if not base_url:
-        raise RuntimeError("No inference provider configured.")
-    endpoint = f"{base_url}/chat/completions"
-    model = os.getenv("LMLM_MODEL", "local-model")
-    api_key = os.getenv("LMLM_MODEL_API_KEY", "").strip()
-    headers = {"Content-Type": "application/json"}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-
+    default_base_url = os.getenv("LMLM_MODEL_BASE_URL", "").strip().rstrip("/")
     specialists = select_specialists(plan)
     semaphore = asyncio.Semaphore(MAX_SPECIALISTS)
 
@@ -100,9 +91,18 @@ async def execute_specialists(
         ]
         async with semaphore:
             try:
+                prefix = "LMLM_" + item["id"].upper()
+                base_url = os.getenv(prefix + "_BASE_URL", default_base_url).strip().rstrip("/")
+                if not base_url:
+                    raise RuntimeError("No inference endpoint configured for specialist.")
+                model = os.getenv(prefix + "_MODEL", os.getenv("LMLM_MODEL", "local-model"))
+                api_key = os.getenv(prefix + "_API_KEY", os.getenv("LMLM_MODEL_API_KEY", "")).strip()
+                headers = {"Content-Type": "application/json"}
+                if api_key:
+                    headers["Authorization"] = "Bearer " + api_key
                 async with httpx.AsyncClient(timeout=httpx.Timeout(45.0)) as client:
                     output = await _chat(
-                        client, endpoint, headers, model, specialist_messages
+                        client, base_url + "/chat/completions", headers, model, specialist_messages
                     )
                 return {"id": item["id"], "status": "completed", "output": output}
             except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
@@ -132,12 +132,20 @@ async def execute_specialists(
         )
     )
     try:
+        synthesis_base = os.getenv("LMLM_SYNTHESIS_BASE_URL", default_base_url).strip().rstrip("/")
+        if not synthesis_base:
+            raise RuntimeError("No synthesis inference endpoint configured.")
+        synthesis_model = os.getenv("LMLM_SYNTHESIS_MODEL", os.getenv("LMLM_MODEL", "local-model"))
+        synthesis_key = os.getenv("LMLM_SYNTHESIS_API_KEY", os.getenv("LMLM_MODEL_API_KEY", "")).strip()
+        synthesis_headers = {"Content-Type": "application/json"}
+        if synthesis_key:
+            synthesis_headers["Authorization"] = "Bearer " + synthesis_key
         async with httpx.AsyncClient(timeout=httpx.Timeout(45.0)) as client:
             answer = await _chat(
                 client,
-                endpoint,
-                headers,
-                model,
+                synthesis_base + "/chat/completions",
+                synthesis_headers,
+                synthesis_model,
                 [
                     {"role": "system", "content": synthesis_system},
                     {"role": "user", "content": synthesis_user},
