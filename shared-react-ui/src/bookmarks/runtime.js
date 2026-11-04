@@ -10,8 +10,7 @@ function isPlainObject(value) {
 
 /**
  * Normalize bookmarklet source without executing or rewriting its semantics.
- * Percent decoding is deliberately not performed: decoding repeatedly can
- * transform inert text into executable code.
+ * Imported javascript: URLs are decoded once; raw source is never decoded.
  */
 export function normalizeBookmarkletSource(input) {
   if (typeof input !== "string") {
@@ -21,9 +20,20 @@ export function normalizeBookmarkletSource(input) {
     return { valid: false, error: "Bookmarklet exceeds the 256 KiB source limit.", source: "" };
   }
 
-  const source = input.trim().replace(/^javascript:/i, "").trim();
+  const hasBookmarkletScheme = /^javascript:/i.test(input.trim());
+  let source = input.trim().replace(/^javascript:/i, "").trim();
   if (!source) {
     return { valid: false, error: "Bookmarklet source cannot be empty.", source: "" };
+  }
+
+  // Decode one time only when importing a javascript: URL. Raw JavaScript is
+  // preserved verbatim so percent sequences inside strings are not rewritten.
+  if (hasBookmarkletScheme && /%(?:[0-9a-f]{2})/i.test(source)) {
+    try {
+      source = decodeURIComponent(source);
+    } catch (_error) {
+      return { valid: false, error: "Bookmarklet URL contains malformed percent encoding.", source: "" };
+    }
   }
   if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(source)) {
     return { valid: false, error: "Bookmarklet contains unsupported control characters.", source: "" };
