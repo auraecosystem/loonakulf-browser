@@ -5,7 +5,6 @@
 **A shared browser experience with native desktop and mobile shells.**
 
 [![CI](https://github.com/auraecosystem/loonakulf-browser/actions/workflows/ci-build-pipeline.yml/badge.svg?branch=main)](https://github.com/auraecosystem/loonakulf-browser/actions/workflows/ci-build-pipeline.yml)
-[![License](https://img.shields.io/badge/license-see%20repository-lightgrey)](LICENSE)
 [![Platform](https://img.shields.io/badge/UI-React%2018-61DAFB?logo=react&logoColor=white)](shared-react-ui/)
 [![Status](https://img.shields.io/badge/status-active%20development-orange)](#project-status)
 
