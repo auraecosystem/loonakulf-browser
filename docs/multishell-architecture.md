@@ -22,9 +22,9 @@ A production bridge should be explicit, versioned and capability-based. The shar
 - `goBack()`, `goForward()`, `reload()` — browser navigation controls.
 - `clearSiteData()` — asks the shell to clear the selected browsing data scope.
 - `setProxy(config)` — validates protocol, host and port in the native shell.
-- `executeBookmarklet(code)` — privileged operation, disabled unless the shell explicitly advertises it and the user confirms the action.
+- `executeBookmarklet({ title, source })` — privileged operation. The native shell validates the caller, request size and active HTTP(S) target, then asks for per-run confirmation before execution.
 
-The shell must validate every message independently. A UI-side check is not a security boundary. Do not expose generic `eval`, arbitrary filesystem access, shell commands, or unrestricted IPC methods. Reject unknown methods, malformed payloads, oversized strings, untrusted origins and stale/destroyed web-view references.
+The shell must validate every message independently. A UI-side check is not a security boundary. Do not expose generic `eval`, arbitrary filesystem access, shell commands, or unrestricted IPC methods. Reject malformed payloads, oversized strings, untrusted origins and stale/destroyed web-view references. Bookmarklet requests must be confirmed natively for every run; consent is not a trust verdict.
 
 ## Platform identity versus capabilities
 
@@ -34,10 +34,10 @@ Request high-entropy Client Hints only after a clear user action and only for a 
 
 ## Current implementation status
 
-- **Shared React UI:** the feature branch restores `src/App.js` and the shared platform parser. The bookmarklet-first validation helpers are available, but CI build and runtime integration still require verification.
-- **Electron:** main/preload split and sender/payload checks exist. A native packaging manifest and complete desktop build pipeline are still needed.
-- **PyQt:** a basic two-view Qt container exists. Its current bridge forwards bookmarklet JavaScript directly to the target view; treat this as a prototype and do not ship it as a trusted production boundary.
-- **Swift:** a basic UIKit/WKWebView container exists. It still needs navigation policy, lifecycle cleanup, local asset/server strategy, and a hardened message contract before production use.
+- **Shared React UI:** bookmarklet builder, local library, bounded source normalization, bridge-request validation and heuristic risk findings are integrated. The UI sends a typed `{ title, source }` request to the native adapter. Static inspection is advisory and is not a safety verdict.
+- **Electron:** main/preload split, main-frame sender checks, localhost UI-origin restriction, bounded request validation, native per-run consent with a source preview, and target-origin recheck are implemented on this branch. The trusted UI URL is still the development server; packaged-origin support and end-to-end tests remain outstanding.
+- **PyQt:** the two-view Qt container validates the UI origin and request shape, bounds source size, asks for native per-run consent with a source preview, and rechecks the target origin before execution. It remains a prototype pending packaged-origin support and end-to-end tests.
+- **Swift:** the UIKit/WKWebView adapter restricts UI navigation, validates main-frame message origin and request bounds, asks for native per-run consent with a source preview, and rechecks the target origin. It remains a prototype pending an Xcode project, packaged-origin strategy and device testing.
 - **Backend:** no backend service is present; browser UI must not assume a remote UA endpoint.
 
 ## Recommended implementation sequence
