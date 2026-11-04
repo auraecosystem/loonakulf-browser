@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="t d">
+<title id="t">Loonakulf Browser multi-shell architecture</title>
+<desc id="d">A shared React user interface communicates through a versioned capability bridge with Electron, PyQt and Swift shells, each using its own browser runtime.</desc>
+<defs>
+<linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101827"/><stop offset="1" stop-color="#1c3550"/></linearGradient>
+<linearGradient id="ui" x2="1"><stop stop-color="#1769aa"/><stop offset="1" stop-color="#168b91"/></linearGradient>
+<marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L9 3L0 6" fill="none" stroke="#a8bdd7" stroke-width="1.5"/></marker>
+</defs>
+<rect width="1200" height="620" rx="24" fill="url(#bg)"/>
+<g font-family="Arial,sans-serif" text-anchor="middle">
+<text x="600" y="50" fill="#f5f8ff" font-size="27" font-weight="700">LOONAKULF BROWSER · MULTI-SHELL ARCHITECTURE</text>
+<rect x="300" y="80" width="600" height="90" rx="15" fill="url(#ui)" stroke="#75d8e3"/>
+<text x="600" y="117" fill="#fff" font-size="24" font-weight="700">Shared React UI</text><text x="600" y="145" fill="#e0f8ff" font-size="15">Browser workflows · bookmarks · diagnostics · consent</text>
+<path d="M600 170V205" stroke="#a8bdd7" stroke-width="3" marker-end="url(#arr)"/>
+<rect x="245" y="215" width="710" height="90" rx="15" fill="#293f5b" stroke="#a8bdd7"/>
+<text x="600" y="251" fill="#fff" font-size="22" font-weight="700">Versioned capability bridge</text><text x="600" y="279" fill="#d7e5f5" font-size="15">Typed messages · origin checks · permissions · payload validation</text>
+<path d="M600 305V345H200V375M600 345V375M600 345H1000V375" fill="none" stroke="#a8bdd7" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="60" y="385" width="280" height="85" rx="13" fill="#174d43" stroke="#70d7b4"/><text x="200" y="420" fill="#fff" font-size="22" font-weight="700">Electron</text><text x="200" y="447" fill="#d5f8ec" font-size="15">Desktop adapter</text>
+<rect x="460" y="385" width="280" height="85" rx="13" fill="#4a3c1c" stroke="#e7c36d"/><text x="600" y="420" fill="#fff" font-size="22" font-weight="700">PyQt</text><text x="600" y="447" fill="#fff0c8" font-size="15">Qt desktop adapter</text>
+<rect x="860" y="385" width="280" height="85" rx="13" fill="#45315e" stroke="#c8a2ed"/><text x="1000" y="420" fill="#fff" font-size="22" font-weight="700">Swift</text><text x="1000" y="447" fill="#eadbff" font-size="15">iOS adapter</text>
+<path d="M200 470V505M600 470V505M1000 470V505" stroke="#a8bdd7" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="60" y="515" width="280" height="65" rx="11" fill="#26364b" stroke="#6683a4"/><text x="200" y="555" fill="#edf4ff" font-size="17">Chromium runtime</text>
+<rect x="460" y="515" width="280" height="65" rx="11" fill="#26364b" stroke="#6683a4"/><text x="600" y="555" fill="#edf4ff" font-size="17">Qt WebEngine</text>
+<rect x="860" y="515" width="280" height="65" rx="11" fill="#26364b" stroke="#6683a4"/><text x="1000" y="555" fill="#edf4ff" font-size="17">WKWebView</text>
+</g></svg>
