@@ -40,13 +40,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
 
 if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    app.setApplicationName("Loonakulf Browser")
+
     profile = QWebEngineProfile.defaultProfile()
     default_user_agent = profile.httpUserAgent().strip()
     if "Loonakulf/" not in default_user_agent:
         profile.setHttpUserAgent(default_user_agent + " Loonakulf/1.0.0")
-
-    app = QApplication(sys.argv)
-    app.setApplicationName("Loonakulf Browser")
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
