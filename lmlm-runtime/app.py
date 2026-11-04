@@ -1,7 +1,7 @@
 """Loopback-only LMLM browser-assistant gateway.
 
 The runtime delegates inference to a configured OpenAI-compatible endpoint.
-It does not execute model output or persist browser page content.
+It does not execute model output. Knowledge persistence requires an explicit user save action.
 """
 from __future__ import annotations
 
