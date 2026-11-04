@@ -28,7 +28,10 @@ export function normalizeBookmarkletSource(input) {
 
   // Decode one time only when importing a javascript: URL. Raw JavaScript is
   // preserved verbatim so percent sequences inside strings are not rewritten.
-  if (hasBookmarkletScheme && /%(?:[0-9a-f]{2})/i.test(source)) {
+  if (hasBookmarkletScheme && /%/.test(source)) {
+    if (/%(?![0-9a-f]{2})/i.test(source)) {
+      return { valid: false, error: "Bookmarklet URL contains malformed percent encoding.", source: "" };
+    }
     try {
       source = decodeURIComponent(source);
     } catch (_error) {
