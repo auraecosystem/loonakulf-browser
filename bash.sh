@@ -1,3 +1,11 @@
+# Platform parser regression tests
+npm run test:platform
+
+# Production build
+npm run build
+
+# Lint source files
+npm run lint
 git clone https://github.com/auraecosystem/loonakulf-browser.git
 cd loonakulf-browser/shared-react-ui
 npm install
