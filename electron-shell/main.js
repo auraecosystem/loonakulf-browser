@@ -303,7 +303,8 @@ ipcMain.handle("lmlm:assist", async (event, payload) => {
       !payload.prompt.trim() ||
       payload.prompt.length > 4000 ||
       typeof payload.includePageContext !== "boolean" ||
-      typeof payload.useKnowledge !== "boolean") {
+      typeof payload.useKnowledge !== "boolean" ||
+      typeof payload.multiAgent !== "boolean") {
     return { ok: false, error: "Invalid LMLM request payload." };
   }
 
@@ -326,7 +327,8 @@ ipcMain.handle("lmlm:assist", async (event, payload) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: payload.prompt.trim() }),
     });
-    const result = await requestLmlm("/v1/assist", {
+    const inferencePath = payload.multiAgent ? "/v1/agents/execute" : "/v1/assist";
+    const result = await requestLmlm(inferencePath, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -337,7 +339,13 @@ ipcMain.handle("lmlm:assist", async (event, payload) => {
         use_knowledge: payload.useKnowledge,
       }),
     });
-    return { ok: true, answer: result.answer, agentPlan };
+    return {
+      ok: true,
+      answer: result.answer,
+      agentPlan,
+      agentResults: result.agent_results || [],
+      executionMode: result.execution_mode || "single_model_inference",
+    };
   } catch (error) {
     return {
       ok: false,
