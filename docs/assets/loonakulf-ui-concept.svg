@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Loonakulf Browser interface concept</title>
+  <desc id="desc">A dark desktop browser concept with a tab strip, navigation and address controls, a browser content area, bookmarklet tools, and a privacy-focused status panel.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0a1220"/><stop offset="1" stop-color="#111f32"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#5eead4"/><stop offset="1" stop-color="#60a5fa"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#020617" flood-opacity=".35"/></filter>
+  </defs>
+  <rect width="1440" height="900" fill="url(#bg)"/>
+  <rect x="54" y="42" width="1332" height="816" rx="24" fill="#0c1727" stroke="#26384d" filter="url(#shadow)"/>
+  <path d="M78 42h1284a24 24 0 0 1 24 24v48H54V66a24 24 0 0 1 24-24Z" fill="#111f31"/>
+  <circle cx="84" cy="78" r="7" fill="#fb7185"/><circle cx="108" cy="78" r="7" fill="#fbbf24"/><circle cx="132" cy="78" r="7" fill="#34d399"/>
+  <rect x="178" y="57" width="238" height="42" rx="11" fill="#1b2b40"/>
+  <circle cx="198" cy="78" r="6" fill="#5eead4"/><text x="214" y="84" fill="#e2e8f0" font-family="Inter,Arial,sans-serif" font-size="14">New tab</text><text x="390" y="84" fill="#94a3b8" font-family="Arial" font-size="18">×</text>
+  <rect x="426" y="57" width="170" height="42" rx="11" fill="#142235" stroke="#26384d"/><text x="448" y="83" fill="#94a3b8" font-family="Inter,Arial,sans-serif" font-size="14">Research</text>
+  <text x="86" y="151" fill="#5eead4" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="2">LOONAKULF</text>
+  <text x="86" y="179" fill="#f8fafc" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700">Browser</text>
+  <g fill="none" stroke="#9fb1c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M96 229h-12m0 0 6-6m-6 6 6 6"/><path d="M132 223l-6 6 6 6"/>
+    <path d="M165 229a10 10 0 1 0 10-10"/><path d="M175 215v7h-7"/>
+  </g>
+  <rect x="196" y="207" width="1002" height="44" rx="13" fill="#17283d" stroke="#30465f"/>
+  <path d="M217 220l8-4 8 4v11l-8 4-8-4Z" fill="none" stroke="#5eead4" stroke-width="1.6"/>
+  <text x="250" y="235" fill="#dbeafe" font-family="Inter,Arial,sans-serif" font-size="14">https://example.com</text>
+  <text x="1157" y="235" fill="#8ca2ba" font-family="Arial" font-size="16">☆</text>
+  <rect x="1212" y="207" width="142" height="44" rx="13" fill="#1c3447" stroke="#2c5264"/>
+  <circle cx="1234" cy="229" r="5" fill="#5eead4"/><text x="1248" y="234" fill="#c9f7ef" font-family="Inter,Arial,sans-serif" font-size="12">Private by default</text>
+  <rect x="76" y="278" width="126" height="548" rx="16" fill="#101e30" stroke="#26384d"/>
+  <text x="96" y="316" fill="#71869e" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="700" letter-spacing="1.4">WORKSPACE</text>
+  <rect x="88" y="337" width="102" height="42" rx="10" fill="#183447"/><rect x="101" y="351" width="14" height="14" rx="3" fill="none" stroke="#5eead4" stroke-width="1.6"/><text x="124" y="365" fill="#d9f8f2" font-family="Inter,Arial,sans-serif" font-size="12">Browse</text>
+  <g fill="none" stroke="#8298b2" stroke-width="1.6"><path d="M102 408h13v13h-13zM102 457h13v13h-13zM102 506h13v13h-13zM102 555h13v13h-13z"/></g>
+  <g fill="#a9bbcf" font-family="Inter,Arial,sans-serif" font-size="12"><text x="124" y="419">Bookmarks</text><text x="124" y="468">Bookmarklets</text><text x="124" y="517">History</text><text x="124" y="566">Settings</text></g>
+  <rect x="220" y="278" width="1134" height="548" rx="16" fill="#f3f7fb"/>
+  <rect x="220" y="278" width="1134" height="74" rx="16" fill="#e9f0f6"/>
+  <text x="264" y="319" fill="#102033" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700">Your web, in focus.</text>
+  <text x="264" y="340" fill="#5b7188" font-family="Inter,Arial,sans-serif" font-size="12">A clean browsing surface with tools available when you need them.</text>
+  <rect x="264" y="382" width="700" height="248" rx="18" fill="#ffffff" stroke="#d7e2ec"/>
+  <rect x="290" y="408" width="52" height="5" rx="2.5" fill="url(#accent)"/>
+  <text x="290" y="451" fill="#13283d" font-family="Inter,Arial,sans-serif" font-size="27" font-weight="700">Welcome to Loonakulf</text>
+  <text x="290" y="482" fill="#61758a" font-family="Inter,Arial,sans-serif" font-size="14">A browser experience built around a shared interface</text>
+  <text x="290" y="504" fill="#61758a" font-family="Inter,Arial,sans-serif" font-size="14">and platform-native capabilities.</text>
+  <rect x="290" y="542" width="156" height="42" rx="10" fill="#102b40"/><text x="312" y="568" fill="#e8fffb" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="600">Explore the web</text>
+  <rect x="986" y="382" width="330" height="248" rx="18" fill="#ffffff" stroke="#d7e2ec"/>
+  <text x="1014" y="420" fill="#183149" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700">Browser tools</text>
+  <text x="1014" y="447" fill="#71869e" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="700" letter-spacing="1">QUICK ACCESS</text>
+  <rect x="1014" y="465" width="274" height="42" rx="10" fill="#f1f6fa"/><circle cx="1036" cy="486" r="7" fill="#5eead4"/><text x="1054" y="491" fill="#29445d" font-family="Inter,Arial,sans-serif" font-size="13">Saved bookmarklets</text>
+  <rect x="1014" y="517" width="274" height="42" rx="10" fill="#f1f6fa"/><circle cx="1036" cy="538" r="7" fill="#60a5fa"/><text x="1054" y="543" fill="#29445d" font-family="Inter,Arial,sans-serif" font-size="13">Privacy and permissions</text>
+  <text x="264" y="681" fill="#28445e" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700">Your tools</text>
+  <rect x="264" y="701" width="332" height="92" rx="14" fill="#ffffff" stroke="#d7e2ec"/><text x="286" y="735" fill="#183149" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="600">Bookmarklets</text><text x="286" y="760" fill="#71869e" font-family="Inter,Arial,sans-serif" font-size="12">Run saved actions with explicit permission.</text>
+  <rect x="612" y="701" width="352" height="92" rx="14" fill="#ffffff" stroke="#d7e2ec"/><text x="634" y="735" fill="#183149" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="600">Platform identity</text><text x="634" y="760" fill="#71869e" font-family="Inter,Arial,sans-serif" font-size="12">Understand the active shell and rendering engine.</text>
+  <rect x="986" y="701" width="330" height="92" rx="14" fill="#ffffff" stroke="#d7e2ec"/><text x="1008" y="735" fill="#183149" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="600">Security controls</text><text x="1008" y="760" fill="#71869e" font-family="Inter,Arial,sans-serif" font-size="12">Keep privileged actions scoped and visible.</text>
+  <text x="86" y="842" fill="#60758d" font-family="Inter,Arial,sans-serif" font-size="10">CONCEPT UI · NOT A SCREENSHOT OF THE CURRENT BUILD</text>
+</svg>

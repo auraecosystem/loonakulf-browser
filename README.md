@@ -25,6 +25,16 @@ The shared UI owns the browser-facing experience and reusable workflows. Native 
 
 ### Project visuals
 
+#### Browser interface concept
+
+<p align="center">
+  <img src="docs/assets/loonakulf-ui-concept.svg" alt="Loonakulf Browser desktop interface concept showing tabs, navigation, workspace tools, bookmarklets and privacy controls" width="100%" />
+</p>
+
+This is a design direction for the shared browser experience, not a screenshot or claim that every illustrated control is already implemented. It keeps the browser surface central, makes bookmarklets discoverable, and keeps privacy and permission state visible.
+
+#### System architecture
+
 <p align="center">
   <img src="docs/assets/loonakulf-architecture.svg" alt="Loonakulf Browser multi-shell architecture diagram" width="100%" />
 </p>
@@ -115,7 +125,8 @@ loonakulf-browser/
 ├── docs/
 │   ├── assets/
 │   │   ├── loonakulf-architecture.svg
-│   │   └── loonakulf-runtime-flow.svg
+│   │   ├── loonakulf-runtime-flow.svg
+│   │   └── loonakulf-ui-concept.svg
 │   ├── Dependencies.md
 │   ├── UA-parser.md
 │   ├── architecture.md
