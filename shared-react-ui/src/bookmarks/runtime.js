@@ -9,8 +9,9 @@ function isPlainObject(value) {
 }
 
 /**
- * Normalize bookmarklet source without evaluating it.
- * Syntax checking and execution belong in a sandboxed, user-authorized runtime.
+ * Normalize bookmarklet source without executing or rewriting its semantics.
+ * Percent decoding is deliberately not performed: decoding repeatedly can
+ * transform inert text into executable code.
  */
 export function normalizeBookmarkletSource(input) {
   if (typeof input !== "string") {
@@ -20,48 +21,44 @@ export function normalizeBookmarkletSource(input) {
     return { valid: false, error: "Bookmarklet exceeds the 256 KiB source limit.", source: "" };
   }
 
-  let source = input.trim();
+  const source = input.trim().replace(/^javascript:/i, "").trim();
   if (!source) {
     return { valid: false, error: "Bookmarklet source cannot be empty.", source: "" };
   }
-
-  if (/^javascript:/i.test(source)) {
-    source = source.slice("javascript:".length).trim();
-  }
-  if (!source) {
-    return { valid: false, error: "Bookmarklet contains no executable source.", source: "" };
-  }
-  if (/[\u0000]/.test(source)) {
-    return { valid: false, error: "Bookmarklet contains a null byte.", source: "" };
-  }
-
-  // Decode at most once. Repeated decoding can change program meaning and enable
-  // double-encoding tricks; callers should retain the original source for review.
-  if (/%(?:[0-9a-f]{2})/i.test(source)) {
-    try {
-      source = decodeURIComponent(source);
-    } catch (_error) {
-      return { valid: false, error: "Bookmarklet contains malformed percent encoding.", source: "" };
-    }
+  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(source)) {
+    return { valid: false, error: "Bookmarklet contains unsupported control characters.", source: "" };
   }
 
   return { valid: true, error: null, source };
 }
 
-/**
- * Return a stable, validated record suitable for local persistence.
- * This function does not establish trust or grant execution permission.
- */
+/** Validate a bridge request. This is input validation, not authorization. */
+export function validateBookmarkletRequest(input) {
+  if (!isPlainObject(input)) {
+    return { valid: false, error: "Bookmarklet request must be an object.", request: null };
+  }
+  const title = typeof input.title === "string" ? input.title.trim() : "";
+  if (!title || title.length > MAX_TITLE_LENGTH) {
+    return { valid: false, error: "A title of at most 120 characters is required.", request: null };
+  }
+  const normalized = normalizeBookmarkletSource(input.source);
+  if (!normalized.valid) return { valid: false, error: normalized.error, request: null };
+  return {
+    valid: true,
+    error: null,
+    request: { title, source: normalized.source }
+  };
+}
+
+/** Return a stable record suitable for local persistence; never grants trust. */
 export function createBookmarkletRecord(input) {
   if (!isPlainObject(input)) {
     return { valid: false, error: "Bookmarklet record must be a plain object.", record: null };
   }
-
   const title = typeof input.title === "string" ? input.title.trim() : "";
   if (!title || title.length > MAX_TITLE_LENGTH) {
     return { valid: false, error: "Title is required and must be at most 120 characters.", record: null };
   }
-
   const normalized = normalizeBookmarkletSource(input.source ?? input.rawCode);
   if (!normalized.valid) return { valid: false, error: normalized.error, record: null };
 
@@ -87,9 +84,7 @@ export function createBookmarkletRecord(input) {
   };
 }
 
-/**
- * Heuristic warnings only. Static scanning cannot prove a script safe or malicious.
- */
+/** Heuristic warnings only. Static scanning cannot prove safety or malice. */
 export function inspectBookmarkletRisk(source) {
   const code = typeof source === "string" ? source : "";
   const checks = [
