@@ -444,7 +444,8 @@ export default function App() {
               </article>
             ))}
           </div>
-        </section>        <section>
+        </section>
+        <section>
           <div style={{ ...panelStyle, display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button style={buttonStyle} onClick={handleExport}>📤 Export</button>
             <label style={{ ...buttonStyle, border: "1px solid #aaa", borderRadius: 4 }}>
