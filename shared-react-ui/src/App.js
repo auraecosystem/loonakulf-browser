@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import LmlmAssistant from "./LmlmAssistant";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
 import {
@@ -370,6 +371,8 @@ export default function App() {
           ))}
         </select>
       </section>
+
+      <LmlmAssistant currentUrl={currentUrl} />
 
       <section style={panelStyle} aria-labelledby="platform-heading">
         <h2 id="platform-heading" style={{ marginTop: 0 }}>Platform intelligence</h2>

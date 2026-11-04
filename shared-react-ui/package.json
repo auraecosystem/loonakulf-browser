@@ -7,7 +7,8 @@
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "dexie": "^3.2.4",
-    "dexie-react-hooks": "^1.1.6"
+    "dexie-react-hooks": "^1.1.6",
+    "prop-types": "^15.8.1"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
@@ -22,17 +23,5 @@
     "lint": "eslint src/**/*.js",
     "format": "prettier --write src/**/*.js",
     "test:platform": "node --test tests/platform/*.test.cjs"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 edge version",
-      "last 1 safari version"
-    ]
   }
 }

@@ -8,8 +8,17 @@ let targetWebpageView;
 const MAX_BOOKMARKLET_LENGTH = 256 * 1024;
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 
+const TRUSTED_UI_ORIGIN = "http://localhost:3000";
+
 function isTrustedUiSender(event) {
+  let senderOrigin = "";
+  try {
+    senderOrigin = new URL(event.senderFrame && event.senderFrame.url).origin;
+  } catch (_error) {
+    return false;
+  }
   return Boolean(
+    senderOrigin === TRUSTED_UI_ORIGIN &&
     mainWindow &&
     !mainWindow.isDestroyed() &&
     event.sender === mainWindow.webContents &&
@@ -62,7 +71,14 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL("http://localhost:3000");
+  mainWindow.loadURL(TRUSTED_UI_ORIGIN);
+  mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
+    try {
+      if (new URL(navigationUrl).origin !== TRUSTED_UI_ORIGIN) event.preventDefault();
+    } catch (_error) {
+      event.preventDefault();
+    }
+  });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
   targetWebpageView = new BrowserWindow({
@@ -191,6 +207,143 @@ ipcMain.on("native-set-proxy-config", (event, payload) => {
       if (!contents.isDestroyed()) contents.reload();
     })
     .catch((error) => console.error("[Proxy] Configuration failed:", error));
+});
+
+
+// LMLM is reached only through this loopback-only runtime URL. The renderer
+// never receives model-provider credentials or an arbitrary network primitive.
+function getLmlmRuntimeBaseUrl() {
+  const configured = process.env.LMLM_RUNTIME_URL || "http://127.0.0.1:8765";
+  try {
+    const url = new URL(configured);
+    const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+    if (url.protocol !== "http:" || !loopbackHosts.has(url.hostname) ||
+        url.username || url.password) return null;
+    return url.toString().replace(/\/$/, "");
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function requestLmlm(pathname, options = {}, timeoutMs = 60000) {
+  const baseUrl = getLmlmRuntimeBaseUrl();
+  if (!baseUrl) throw new Error("LMLM runtime must use an HTTP loopback URL.");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${baseUrl}${pathname}`, {
+      ...options,
+      signal: controller.signal,
+    });
+    const raw = await response.text();
+    if (raw.length > 150000) throw new Error("LMLM response exceeded the size limit.");
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (_error) {
+      throw new Error("LMLM runtime returned invalid JSON.");
+    }
+    if (!response.ok) {
+      throw new Error(typeof data.detail === "string" ? data.detail : `LMLM runtime HTTP ${response.status}`);
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+ipcMain.handle("lmlm:get-status", async (event) => {
+  if (!isTrustedUiSender(event)) return { available: false, providerConfigured: false };
+  try {
+    const status = await requestLmlm("/health", {}, 2500);
+    return {
+      available: status.status === "ok",
+      providerConfigured: status.provider_configured === true,
+      model: typeof status.model === "string" ? status.model : "",
+    };
+  } catch (_error) {
+    return { available: false, providerConfigured: false };
+  }
+});
+
+ipcMain.handle("lmlm:save-page", async (event) => {
+  const contents = getTargetWebContents(event);
+  if (!contents) return { ok: false, error: "Untrusted browser request." };
+  try {
+    const page = await contents.executeJavaScript(
+      "(() => ({ title: String(document.title || '').slice(0, 300), " +
+      "url: String(location.href || '').slice(0, 2048), " +
+      "text: String(document.body?.innerText || '').slice(0, 30000) }))()"
+    );
+    if (!page.text || !page.text.trim()) {
+      return { ok: false, error: "The active page has no readable text to save." };
+    }
+    const result = await requestLmlm("/v1/knowledge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        confirm_save: true,
+        title: page.title || "Untitled page",
+        source_url: page.url || "",
+        content: page.text,
+      }),
+    });
+    return { ok: true, id: result.id, title: result.title };
+  } catch (error) {
+    return { ok: false, error: error.message || "Could not save active page." };
+  }
+});
+
+ipcMain.handle("lmlm:assist", async (event, payload) => {
+  const contents = getTargetWebContents(event);
+  if (!contents || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { ok: false, error: "Untrusted browser request." };
+  }
+  if (typeof payload.prompt !== "string" ||
+      !payload.prompt.trim() ||
+      payload.prompt.length > 4000 ||
+      typeof payload.includePageContext !== "boolean" ||
+      typeof payload.useKnowledge !== "boolean") {
+    return { ok: false, error: "Invalid LMLM request payload." };
+  }
+
+  let page = { title: "", url: "", text: "" };
+  if (payload.includePageContext) {
+    try {
+      page = await contents.executeJavaScript(
+        "(() => ({ title: String(document.title || '').slice(0, 300), " +
+        "url: String(location.href || '').slice(0, 2048), " +
+        "text: String(document.body?.innerText || '').slice(0, 12000) }))()"
+      );
+    } catch (_error) {
+      return { ok: false, error: "Could not read the active page context." };
+    }
+  }
+
+  try {
+    const agentPlan = await requestLmlm("/v1/agents/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: payload.prompt.trim() }),
+    });
+    const result = await requestLmlm("/v1/assist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: payload.prompt.trim(),
+        page_title: page.title || "",
+        page_url: page.url || "",
+        page_text: page.text || "",
+        use_knowledge: payload.useKnowledge,
+      }),
+    });
+    return { ok: true, answer: result.answer, agentPlan };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error.name === "AbortError" ? "LMLM request timed out." : error.message,
+    };
+  }
 });
 
 app.whenReady().then(createWindow);

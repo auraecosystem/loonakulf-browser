@@ -49,3 +49,25 @@ Request high-entropy Client Hints only after a clear user action and only for a 
 5. Port the contract to Swift using WKNavigationDelegate and narrowly scoped WKScriptMessageHandler methods.
 6. Add platform-specific build and smoke-test jobs only when each shell has its own dependency manifest and reproducible build instructions.
 7. Review bookmarklet execution as a separate high-risk feature before enabling it by default.
+
+
+## LMLM intelligence integration
+
+The first LMLM integration is an opt-in contextual assistant, not an autonomous
+browser controller.
+
+- The shared React UI renders the assistant panel and exposes only typed calls.
+- Electron preload exposes `getLmlmStatus()` and `askLmlm(payload)`.
+- Electron main validates the trusted UI sender and payload, then reads active
+  page text only when the user checks the explicit page-context option.
+- Electron main calls a loopback-only LMLM runtime at
+  `http://127.0.0.1:8765`.
+- The runtime delegates inference to a configured OpenAI-compatible endpoint.
+  The model API key remains in the runtime process.
+- Page content is untrusted input, is size-limited, and is not persisted by the
+  initial runtime. Model output is displayed as text and never executed.
+
+The current adapter is implemented for Electron. PyQt and Swift must receive
+separate native implementations of the same narrow contract before they can
+advertise LMLM support. No browser automation, form submission, downloads,
+wallet actions, or arbitrary native execution are granted by this integration.
