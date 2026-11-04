@@ -17,6 +17,7 @@ class ViewController: UIViewController, WKScriptMessageHandler {
         
         let config = WKWebViewConfiguration()
         config.userContentController = contentController
+        config.applicationNameForUserAgent = "Loonakulf/1.0.0"
         
         // 1. Initialize your UI container
         uiWebView = WKWebView(frame: CGRect(x: 0, y: 0, width: self.view.frame.width, height: 300), configuration: config)
@@ -24,7 +25,9 @@ class ViewController: UIViewController, WKScriptMessageHandler {
         self.view.addSubview(uiWebView)
         
         // 2. Initialize the site tab browser underneath it
-        targetWebView = WKWebView(frame: CGRect(x: 0, y: 300, width: self.view.frame.width, height: self.view.frame.height - 300))
+        let targetConfig = WKWebViewConfiguration()
+        targetConfig.applicationNameForUserAgent = "Loonakulf/1.0.0"
+        targetWebView = WKWebView(frame: CGRect(x: 0, y: 300, width: self.view.frame.width, height: self.view.frame.height - 300), configuration: targetConfig)
         targetWebView.load(URLRequest(url: URL(string: "https://example.com")!))
         self.view.addSubview(targetWebView)
     }
