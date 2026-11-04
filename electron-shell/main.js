@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain } = require("electron");
 const path = require("path");
 const { isValidUserAgent } = require("./platform");
 
@@ -9,12 +9,32 @@ const MAX_BOOKMARKLET_LENGTH = 256 * 1024;
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 
 function isTrustedUiSender(event) {
-  return Boolean(
-    mainWindow &&
-    !mainWindow.isDestroyed() &&
-    event.sender === mainWindow.webContents &&
-    event.senderFrame === event.sender.mainFrame
-  );
+  if (
+    !mainWindow ||
+    mainWindow.isDestroyed() ||
+    event.sender !== mainWindow.webContents ||
+    event.senderFrame !== event.sender.mainFrame
+  ) return false;
+
+  try {
+    const frameUrl = new URL(event.senderFrame.url);
+    return frameUrl.protocol === "http:" &&
+      frameUrl.hostname === "localhost" &&
+      frameUrl.port === "3000";
+  } catch (_error) {
+    return false;
+  }
+}
+
+function isTrustedUiUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" &&
+      url.hostname === "localhost" &&
+      url.port === "3000";
+  } catch (_error) {
+    return false;
+  }
 }
 
 function getTargetWebContents(event) {
@@ -64,6 +84,9 @@ function createWindow() {
 
   mainWindow.loadURL("http://localhost:3000");
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
+    if (!isTrustedUiUrl(navigationUrl)) event.preventDefault();
+  });
 
   targetWebpageView = new BrowserWindow({
     width: 1300,
@@ -107,24 +130,57 @@ function createWindow() {
   });
 }
 
-ipcMain.on("execute-bookmarklet", (event, rawCode) => {
+ipcMain.handle("execute-bookmarklet", async (event, payload) => {
   const contents = getTargetWebContents(event);
-  if (!contents || typeof rawCode !== "string" || rawCode.length > MAX_BOOKMARKLET_LENGTH) {
-    console.warn("[Bookmarklet] Rejected untrusted sender or invalid payload.");
-    return;
+  if (
+    !contents ||
+    !payload ||
+    typeof payload !== "object" ||
+    typeof payload.title !== "string" ||
+    !payload.title.trim() ||
+    payload.title.length > 120 ||
+    typeof payload.source !== "string" ||
+    !payload.source.trim() ||
+    payload.source.length > MAX_BOOKMARKLET_LENGTH ||
+    /[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/.test(payload.source)
+  ) {
+    console.warn("[Bookmarklet] Rejected untrusted sender or invalid request.");
+    return { ok: false, reason: "invalid-request" };
   }
-  let cleanCode = rawCode;
-  if (/^javascript:/i.test(cleanCode)) {
-    try {
-      cleanCode = decodeURIComponent(cleanCode.replace(/^javascript:/i, ""));
-    } catch (_error) {
-      console.warn("[Bookmarklet] Rejected malformed encoded payload.");
-      return;
-    }
+
+  const initialUrl = parseSafeHttpUrl(contents.getURL());
+  if (!initialUrl || !mainWindow || mainWindow.isDestroyed()) {
+    return { ok: false, reason: "invalid-target" };
   }
-  contents.executeJavaScript(cleanCode).catch((error) => {
-    console.error("[Bookmarklet] Execution failed:", error);
+  const targetOrigin = new URL(initialUrl).origin;
+  const response = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    title: "Run bookmarklet?",
+    message: "Run “" + payload.title.trim() + "” on " + targetOrigin + "?",
+    detail: "This script runs with the active page’s privileges. It may read or modify page content and access data available to scripts on this origin. Only continue if you trust the source.",
+    buttons: ["Cancel", "Run once"],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true
   });
+  if (response.response !== 1) return { ok: false, reason: "cancelled" };
+
+  const currentUrl = parseSafeHttpUrl(contents.getURL());
+  if (
+    !currentUrl ||
+    new URL(currentUrl).origin !== targetOrigin ||
+    contents.isDestroyed()
+  ) {
+    return { ok: false, reason: "target-changed" };
+  }
+
+  try {
+    await contents.executeJavaScript(payload.source, true);
+    return { ok: true };
+  } catch (error) {
+    console.error("[Bookmarklet] Execution failed:", error);
+    return { ok: false, reason: "execution-failed" };
+  }
 });
 
 ipcMain.on("native-browser-control", (event, payload) => {
