@@ -127,6 +127,7 @@ loonakulf-browser/
 │   │   ├── loonakulf-architecture.svg
 │   │   ├── loonakulf-runtime-flow.svg
 │   │   └── loonakulf-ui-concept.svg
+│   ├── bookmarklet-first-architecture.md
 │   ├── Dependencies.md
 │   ├── UA-parser.md
 │   ├── architecture.md
@@ -144,10 +145,13 @@ loonakulf-browser/
 │   │   └── index.html
 │   ├── src/
 │   │   ├── App.js
+│   │   ├── bookmarks/
+│   │   │   └── runtime.js
 │   │   ├── db.js
 │   │   ├── index.js
 │   │   └── platform/
 │   ├── tests/
+│   │   ├── bookmarks/
 │   │   └── platform/
 │   └── package.json
 ├── swift-shell/
