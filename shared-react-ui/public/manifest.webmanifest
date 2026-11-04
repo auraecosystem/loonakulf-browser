@@ -1,0 +1,17 @@
+{
+  "name": "Loonakulf Browser",
+  "short_name": "Loonakulf",
+  "description": "An independent browser experience with native desktop and mobile shells.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#081426",
+  "theme_color": "#081426",
+  "icons": [
+    {
+      "src": "/loonakulf-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
