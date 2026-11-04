@@ -42,10 +42,10 @@ Request high-entropy Client Hints only after a clear user action and only for a 
 
 ## Recommended implementation sequence
 
-1. Verify the restored React application entry component, then stabilize the build and regression tests.
-2. Define and test a versioned bridge contract in the shared UI.
-3. Implement the contract in Electron first, keeping privileged methods allowlisted.
-4. Port the same contract to PyQt with strict origin and payload validation.
-5. Port the contract to Swift using WKNavigationDelegate and narrowly scoped WKScriptMessageHandler methods.
-6. Add platform-specific build and smoke-test jobs only when each shell has its own dependency manifest and reproducible build instructions.
-7. Review bookmarklet execution as a separate high-risk feature before enabling it by default.
+1. Keep the React production build and bookmarklet/platform regression tests green.
+2. Replace the development-server trust origin with a packaged, authenticated local UI origin in each shell.
+3. Formalize a versioned bridge contract with structured success/failure results and explicit capability discovery.
+4. Add bookmarklet version history, run history and origin-scoped permission management without persisting page content or secrets.
+5. Add end-to-end tests for user cancellation, malformed payloads, navigation races and cross-origin changes in Electron and PyQt.
+6. Add an Xcode project, compile the Swift adapter on macOS, and test the WKWebView bridge on a real iOS device.
+7. Add reproducible native packaging and release pipelines.
