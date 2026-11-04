@@ -9,7 +9,7 @@
 [![Status](https://img.shields.io/badge/status-active%20development-orange)](#project-status)
 
 [Repository](https://github.com/auraecosystem/loonakulf-browser) · [Documentation](docs/) · [Issues](https://github.com/auraecosystem/loonakulf-browser/issues) · [CI runs](https://github.com/auraecosystem/loonakulf-browser/actions)
-
+>- npm run dev
 **Hosted demo:** [Open the demo deployment](https://auraecosystem.github.io/loonakulf-browser/)  
 <sub>The Pages URL is the planned public preview. It will become available after GitHub Pages is enabled and the deployment workflow completes successfully. Until then, run the app locally using the quick-start below.</sub>
 
@@ -155,6 +155,7 @@ loonakulf-browser/
 │       └── ViewController.swift
 └── README.md
 ```
+>- npm run dev -- --host
 
 ## Quick start
 
