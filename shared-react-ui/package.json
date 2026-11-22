@@ -23,5 +23,17 @@
     "format": "prettier --write src/**/*.js",
     "test:platform": "node --test tests/platform/*.test.cjs",
     "test:bookmarklets": "CI=true react-scripts test --watchAll=false --runInBand"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }
