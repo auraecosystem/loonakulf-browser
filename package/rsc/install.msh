@@ -1,4 +1,5 @@
-cd shared-react-ui 
+#!/bin/bash mesh
+cd shared-react-ui
 npm install dexie
 pyinstaller --noconsole --onefile main.py
 cd ../pyqt-shell
@@ -6,7 +7,7 @@ pip install pyinstaller
 #!/bin/bash
 # install.msh - Setup script pipeline execution module
 
-echo "🚀 [Loonakulf Browser] Starting Workspace Dependency Compilation Pipeline..."
+echo "🚀 [Loonakulf Browser] Startingqm a Workspace Dependency Compilation Pipeline..."
 
 # 1. Compile Core React Shared Interface UI Modules
 if [ -d "shared-react-ui" ]; then
