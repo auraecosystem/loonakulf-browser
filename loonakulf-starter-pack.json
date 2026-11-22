@@ -1,0 +1,34 @@
+[
+  {
+    "name": "CSS Outliner (X-Ray)",
+    "url": "javascript:(function(){const id='lk-xray';const old=document.getElementById(id);if(old){old.remove();return;}const s=document.createElement('style');s.id=id;s.textContent='*{outline:1px solid rgba(255,0,0,0.45)!important;}';document.head.appendChild(s);})();"
+  },
+  {
+    "name": "Toggle Dark Mode",
+    "url": "javascript:(function(){const f=document.documentElement.style.filter;document.documentElement.style.filter=f?'':'invert(1) hue-rotate(180deg)';})();"
+  },
+  {
+    "name": "Edit Any Text on Page",
+    "url": "javascript:(function(){const on=document.body.contentEditable==='true';document.body.contentEditable=!on;document.designMode=on?'off':'on';alert('Page Editing: '+(!on?'ON':'OFF'));})();"
+  },
+  {
+    "name": "Extract All Links",
+    "url": "javascript:(function(){const links=[...new Set([...document.querySelectorAll('a[href]')].map(a=>a.href))];const win=window.open('about:blank','_blank');win.document.write('<h2>Extracted Links ('+links.length+')</h2><ul>'+links.map(l=>'<li><a href=\"'+l+'\" target=\"_blank\">'+l+'</a></li>').join('')+'</ul>');win.document.close();})();"
+  },
+  {
+    "name": "Page Word & Read Time",
+    "url": "javascript:(function(){const text=document.body.innerText.trim();const words=text?text.split(/\\s+/).length:0;const mins=Math.max(1,Math.ceil(words/200));alert('Words: '+words.toLocaleString()+'\\nEstimated Read Time: ~'+mins+' min');})();"
+  },
+  {
+    "name": "Remove Fixed Popups/Overlays",
+    "url": "javascript:(function(){let count=0;document.querySelectorAll('*').forEach(el=>{const st=getComputedStyle(el);if((st.position==='fixed'||st.position==='sticky')&&parseInt(st.zIndex,10)>10){el.remove();count++;}});document.body.style.overflow='auto';alert('Removed '+count+' sticky/fixed overlays.');})();"
+  },
+  {
+    "name": "Show All Images",
+    "url": "javascript:(function(){const imgs=[...new Set([...document.images].map(i=>i.src).filter(Boolean))];const win=window.open('about:blank','_blank');win.document.write('<body style=\"background:#111;color:#fff;font-family:sans-serif\"><h2>Images ('+imgs.length+')</h2><div style=\"display:flex;flex-wrap:wrap;gap:12px\">'+imgs.map(src=>'<img src=\"'+src+'\" style=\"max-height:180px;border:1px solid #444\"/>').join('')+'</div></body>');win.document.close();})();"
+  },
+  {
+    "name": "Scroll to Bottom",
+    "url": "javascript:(function(){window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});})();"
+  }
+]
