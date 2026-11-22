@@ -327,3 +327,92 @@ button.primary {
   font-weight: bold;
 }
 </style>
+
+<script setup>
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { formatNavigationTarget, isBlank } from './utils/urlHelper.js';
+
+// ... (keep existing bookmarks, tabs, activeTabId, addressInput, and editor state) ...
+
+// --- 1. Live URL & Title Event Syncing ---
+let unlistenUrl = null;
+let unlistenTitle = null;
+
+onMounted(async () => {
+  unlistenUrl = await listen('tab-url-changed', (event) => {
+    const { tab_id, url } = event.payload;
+    const targetTab = tabs.value.find(t => t.id === tab_id);
+    if (targetTab) {
+      targetTab.url = url;
+      if (activeTabId.value === tab_id) {
+        addressInput.value = url;
+      }
+    }
+  });
+
+  unlistenTitle = await listen('tab-title-changed', (event) => {
+    const { tab_id, title } = event.payload;
+    const targetTab = tabs.value.find(t => t.id === tab_id);
+    if (targetTab) {
+      targetTab.title = title;
+    }
+  });
+});
+
+onUnmounted(() => {
+  if (unlistenUrl) unlistenUrl();
+  if (unlistenTitle) unlistenTitle();
+});
+
+// --- 2. JSON Export & Import for Bookmarklet Collections ---
+const fileInputRef = ref(null);
+
+function exportBookmarksJson() {
+  const dataStr = JSON.stringify(bookmarks.value, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const downloadUrl = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = `loonakulf-bookmarklets-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+
+  URL.revokeObjectURL(downloadUrl);
+}
+
+function triggerImportJson() {
+  fileInputRef.value?.click();
+}
+
+function handleImportJson(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error('Invalid format');
+
+      // Validate each item has a name and url before adding
+      const validItems = imported
+        .filter(item => !isBlank(item?.name) && !isBlank(item?.url))
+        .map(item => ({
+          id: Date.now() + Math.random(),
+          name: item.name.trim(),
+          url: item.url.trim()
+        }));
+
+      bookmarks.value.push(...validItems);
+      alert(`Imported ${validItems.length} bookmarks/bookmarklets!`);
+    } catch {
+      alert('Invalid JSON file. Expected an array of { name, url } objects.');
+    } finally {
+      event.target.value = ''; // Reset input so the same file can be re-imported if needed
+    }
+  };
+  reader.readAsText(file);
+}
+</script>
