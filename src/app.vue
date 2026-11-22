@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { formatNavigationTarget, isBlank } from './utils/urlHelper.js';
 
 const STORAGE_KEY = 'loonakulf_bookmarks_v1';
+const isTauri = Boolean(window.__TAURI_INTERNALS__);
 
 const defaultBookmarks = [
   { id: 1, name: 'Wikipedia', url: 'https://wikipedia.org' },
@@ -34,17 +35,23 @@ async function createNewTab() {
   tabs.value.push({ id: newId, title: 'New Tab', url: 'about:blank' });
   activeTabId.value = newId;
   addressInput.value = '';
-  await invoke('switch_tab', { tabId: newId });
+  if (isTauri) {
+    await invoke('switch_tab', { tabId: newId });
+  }
 }
 
 async function selectTab(tab) {
   activeTabId.value = tab.id;
   addressInput.value = tab.url === 'about:blank' ? '' : tab.url;
-  await invoke('switch_tab', { tabId: tab.id });
+  if (isTauri) {
+    await invoke('switch_tab', { tabId: tab.id });
+  }
 }
 
 async function removeTab(tabId) {
-  await invoke('close_tab', { tabId });
+  if (isTauri) {
+    await invoke('close_tab', { tabId });
+  }
   tabs.value = tabs.value.filter(t => t.id !== tabId);
 
   if (tabs.value.length === 0) {
@@ -65,7 +72,11 @@ async function handleNavigation(rawTarget = addressInput.value) {
       return;
     }
     const rawJs = decodeURIComponent(target.slice('javascript:'.length));
-    await invoke('run_bookmarklet', { tabId: tab.id, code: rawJs });
+    if (isTauri) {
+      await invoke('run_bookmarklet', { tabId: tab.id, code: rawJs });
+    } else {
+      alert('Bookmarklet execution requires running inside Tauri (npm run tauri dev).');
+    }
     return;
   }
 
@@ -74,12 +85,14 @@ async function handleNavigation(rawTarget = addressInput.value) {
   tab.title = target === 'about:blank' ? 'New Tab' : target.replace(/^https?:\/\//, '');
   addressInput.value = target === 'about:blank' ? '' : target;
 
-  await invoke('navigate_tab', { tabId: tab.id, url: target });
+  if (isTauri) {
+    await invoke('navigate_tab', { tabId: tab.id, url: target });
+  }
 }
 
 // --- Back, Forward, Reload ---
 async function triggerTabAction(action) {
-  if (activeTab.value.url === 'about:blank') return;
+  if (activeTab.value.url === 'about:blank' || !isTauri) return;
   await invoke('tab_action', { tabId: activeTabId.value, action });
 }
 
@@ -90,12 +103,16 @@ const editorCode = ref('// Write multi-line JavaScript here\ndocument.body.style
 
 async function openEditor() {
   showEditor.value = true;
-  await invoke('switch_tab', { tabId: 'none' });
+  if (isTauri) {
+    await invoke('switch_tab', { tabId: 'none' });
+  }
 }
 
 async function closeEditor() {
   showEditor.value = false;
-  await invoke('switch_tab', { tabId: activeTabId.value });
+  if (isTauri) {
+    await invoke('switch_tab', { tabId: activeTabId.value });
+  }
 }
 
 function compileBookmarklet(rawJs) {
@@ -111,7 +128,9 @@ async function testEditorCode() {
   }
   const codeToRun = editorCode.value.trim();
   await closeEditor();
-  await invoke('run_bookmarklet', { tabId: activeTabId.value, code: codeToRun });
+  if (isTauri) {
+    await invoke('run_bookmarklet', { tabId: activeTabId.value, code: codeToRun });
+  }
 }
 
 async function saveEditorBookmarklet() {
@@ -153,10 +172,12 @@ function triggerImportJson() {
 }
 
 function handleImportJson(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
 
+  const file = files[0];
   const reader = new FileReader();
+
   reader.onload = (e) => {
     try {
       const imported = JSON.parse(e.target.result);
@@ -178,6 +199,7 @@ function handleImportJson(event) {
       event.target.value = '';
     }
   };
+
   reader.readAsText(file);
 }
 
@@ -208,24 +230,26 @@ let unlistenTitle = null;
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown);
 
-  unlistenUrl = await listen('tab-url-changed', (event) => {
-    const { tab_id, url } = event.payload;
-    const targetTab = tabs.value.find(t => t.id === tab_id);
-    if (targetTab) {
-      targetTab.url = url;
-      if (activeTabId.value === tab_id) {
-        addressInput.value = url;
+  if (isTauri) {
+    unlistenUrl = await listen('tab-url-changed', (event) => {
+      const { tab_id, url } = event.payload;
+      const targetTab = tabs.value.find(t => t.id === tab_id);
+      if (targetTab) {
+        targetTab.url = url;
+        if (activeTabId.value === tab_id) {
+          addressInput.value = url;
+        }
       }
-    }
-  });
+    });
 
-  unlistenTitle = await listen('tab-title-changed', (event) => {
-    const { tab_id, title } = event.payload;
-    const targetTab = tabs.value.find(t => t.id === tab_id);
-    if (targetTab) {
-      targetTab.title = title;
-    }
-  });
+    unlistenTitle = await listen('tab-title-changed', (event) => {
+      const { tab_id, title } = event.payload;
+      const targetTab = tabs.value.find(t => t.id === tab_id);
+      if (targetTab) {
+        targetTab.title = title;
+      }
+    });
+  }
 });
 
 onUnmounted(() => {
@@ -241,10 +265,10 @@ onUnmounted(() => {
     <header class="browser-chrome">
       <!-- Row 1: Tab Strip -->
       <div class="tab-strip">
-        <div 
-          v-for="tab in tabs" 
-          :key="tab.id" 
-          class="tab" 
+        <div
+          v-for="tab in tabs"
+          :key="tab.id"
+          class="tab"
           :class="{ active: tab.id === activeTabId }"
           @click="selectTab(tab)"
         >
@@ -260,10 +284,10 @@ onUnmounted(() => {
         <button type="button" :disabled="activeTab.url === 'about:blank'" @click="triggerTabAction('forward')" title="Forward">→</button>
         <button type="button" :disabled="activeTab.url === 'about:blank'" @click="triggerTabAction('reload')" title="Reload (Ctrl+R)">↻</button>
 
-        <input 
+        <input
           ref="addressInputRef"
-          v-model="addressInput" 
-          placeholder="Enter URL or javascript:... bookmarklet (Ctrl+L)" 
+          v-model="addressInput"
+          placeholder="Enter URL or javascript:... bookmarklet (Ctrl+L)"
         />
         <button type="submit">Go</button>
         <button type="button" @click="openEditor">+ New Bookmarklet</button>
@@ -281,21 +305,203 @@ onUnmounted(() => {
         <div class="bookmark-tools">
           <button type="button" @click="exportBookmarksJson" title="Export JSON">Export</button>
           <button type="button" @click="triggerImportJson" title="Import JSON">Import</button>
-          <input 
-            ref="fileInputRef" 
-            type="file" 
-            accept=".json,application/json" 
-            style="display: none" 
-            @change="handleImportJson" 
-          />
-        </div>
-      </nav>
-    </header>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept=".json,application/json"
+            style="display: none"
+Use code with caution.
+@change="handleImportJson"
+/>
 
-    <!-- New Tab Blank Viewport -->
-    <main v-if="activeTab.url === 'about:blank' && !showEditor" class="blank-viewport">
-      <h1>Loonakulf Browser</h1>
-      <p>Enter a website URL above, or click <strong>+ New Bookmarklet</strong> to write custom page scripts.</p>
-    </main>
+<button type="button" @click="testEditorCode">▶ Run on Active Tab
+<button type="button" class="primary" @click="saveEditorBookmarklet">Save to Bar
+<button type="button" @click="closeEditor">Cancel
 
-    <!-- Bookmarklet Studio Modal -->
+
+
+
+html, body, #app {
+margin: 0;
+padding: 0;
+height: 100%;
+overflow: hidden;
+background: #11111b;
+}
+.loonakulf-app {
+height: 100vh;
+width: 100vw;
+display: flex;
+flex-direction: column;
+background: #11111b;
+color: #cdd6f4;
+font-family: system-ui, sans-serif;
+}
+.browser-chrome {
+height: 148px;
+box-sizing: border-box;
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+padding: 8px 12px;
+background: #1e1e2e;
+border-bottom: 1px solid #313244;
+flex-shrink: 0;
+}
+.tab-strip {
+display: flex;
+gap: 6px;
+overflow-x: auto;
+}
+.tab {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 6px 12px;
+background: #181825;
+border-radius: 6px;
+cursor: pointer;
+max-width: 180px;
+font-size: 13px;
+}
+.tab.active {
+background: #313244;
+color: #fff;
+font-weight: 600;
+}
+.tab-title {
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+}
+.close-tab, .new-tab-btn {
+background: none;
+border: none;
+color: #a6adc8;
+cursor: pointer;
+}
+.toolbar {
+display: flex;
+gap: 8px;
+}
+.toolbar input {
+flex: 1;
+padding: 7px 12px;
+border-radius: 6px;
+border: 1px solid #45475a;
+background: #11111b;
+color: #fff;
+}
+.bookmarks-bar {
+display: flex;
+justify-content: space-between;
+gap: 10px;
+align-items: center;
+}
+.bookmark-list {
+display: flex;
+gap: 10px;
+overflow-x: auto;
+align-items: center;
+}
+.bookmark-tools {
+display: flex;
+gap: 6px;
+flex-shrink: 0;
+}
+.bookmark-item {
+display: flex;
+align-items: center;
+gap: 4px;
+background: #313244;
+padding: 3px 9px;
+border-radius: 4px;
+font-size: 12px;
+white-space: nowrap;
+}
+.bookmark-item a {
+color: #89b4fa;
+text-decoration: none;
+}
+.delete-btn {
+background: none;
+border: none;
+color: #f38ba8;
+cursor: pointer;
+padding: 0 2px;
+}
+.blank-viewport {
+flex: 1;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+color: #a6adc8;
+text-align: center;
+padding: 20px;
+}
+.dev-notice {
+margin-top: 12px;
+font-size: 13px;
+color: #f9e2af;
+}
+.fallback-iframe {
+flex: 1;
+border: none;
+width: 100%;
+background: #fff;
+}
+.editor-modal {
+flex: 1;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 20px;
+}
+.editor-card {
+width: 100%;
+max-width: 600px;
+background: #1e1e2e;
+padding: 20px;
+border-radius: 10px;
+border: 1px solid #45475a;
+display: flex;
+flex-direction: column;
+gap: 12px;
+}
+.name-input, textarea {
+width: 100%;
+box-sizing: border-box;
+background: #11111b;
+color: #a6e3a1;
+border: 1px solid #45475a;
+border-radius: 6px;
+padding: 10px;
+font-family: monospace;
+}
+.editor-actions {
+display: flex;
+gap: 10px;
+justify-content: flex-end;
+}
+button {
+padding: 6px 12px;
+border-radius: 6px;
+border: 1px solid #45475a;
+background: #313244;
+color: #fff;
+cursor: pointer;
+}
+button:disabled {
+opacity: 0.4;
+cursor: not-allowed;
+}
+button.primary {
+background: #89b4fa;
+color: #11111b;
+font-weight: bold;
+}
+
+<FollowUp>
+Try replacing `src/App.vue` with this version—does the UI render cleanly now, or are you seeing any **console or terminal errors**?
+</FollowUp>
