@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { formatNavigationTarget, isBlank } from './utils/urlHelper.js';
 
 const STORAGE_KEY = 'loonakulf_bookmarks_v1';
@@ -24,6 +25,7 @@ const tabs = ref([
 ]);
 const activeTabId = ref('tab-1');
 const addressInput = ref('');
+const addressInputRef = ref(null);
 
 const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value));
 
@@ -75,14 +77,19 @@ async function handleNavigation(rawTarget = addressInput.value) {
   await invoke('navigate_tab', { tabId: tab.id, url: target });
 }
 
-// --- Bookmarklet Editor Modal State ---
+// --- Back, Forward, Reload ---
+async function triggerTabAction(action) {
+  if (activeTab.value.url === 'about:blank') return;
+  await invoke('tab_action', { tabId: activeTabId.value, action });
+}
+
+// --- Bookmarklet Studio Modal ---
 const showEditor = ref(false);
 const editorName = ref('');
 const editorCode = ref('// Write multi-line JavaScript here\ndocument.body.style.backgroundColor = "#111";\ndocument.body.style.color = "#0f0";');
 
 async function openEditor() {
   showEditor.value = true;
-  // Temporarily hide native webview so the HTML modal renders cleanly on top
   await invoke('switch_tab', { tabId: 'none' });
 }
 
@@ -91,7 +98,6 @@ async function closeEditor() {
   await invoke('switch_tab', { tabId: activeTabId.value });
 }
 
-// Wraps multi-line JS into a safe single-line javascript:(function(){...})() bookmarklet
 function compileBookmarklet(rawJs) {
   const cleaned = rawJs.trim();
   if (cleaned.toLowerCase().startsWith('javascript:')) return cleaned;
@@ -125,248 +131,8 @@ async function saveEditorBookmarklet() {
 function removeBookmark(id) {
   bookmarks.value = bookmarks.value.filter(bm => bm.id !== id);
 }
-</script>
 
-<template>
-  <div class="loonakulf-app">
-    <!-- Top Browser Chrome (148px matches CHROME_HEIGHT = 148.0 in Rust) -->
-    <header class="browser-chrome">
-      <!-- Row 1: Tab Strip -->
-      <div class="tab-strip">
-        <div 
-          v-for="tab in tabs" 
-          :key="tab.id" 
-          class="tab" 
-          :class="{ active: tab.id === activeTabId }"
-          @click="selectTab(tab)"
-        >
-          <span class="tab-title">{{ tab.title }}</span>
-          <button type="button" class="close-tab" @click.stop="removeTab(tab.id)">×</button>
-        </div>
-        <button type="button" class="new-tab-btn" @click="createNewTab">+</button>
-      </div>
-
-      <!-- Row 2: Address Bar -->
-      <form class="toolbar" @submit.prevent="handleNavigation()">
-        <input v-model="addressInput" placeholder="Enter URL or javascript:... bookmarklet" />
-        <button type="submit">Go</button>
-        <button type="button" @click="openEditor">+ New Bookmarklet</button>
-      </form>
-
-      <!-- Row 3: Bookmarks & Bookmarklets Bar -->
-      <nav class="bookmarks-bar">
-        <div v-for="bm in bookmarks" :key="bm.id" class="bookmark-item">
-          <a href="#" @click.prevent="handleNavigation(bm.url)">{{ bm.name }}</a>
-          <button type="button" class="delete-btn" @click="removeBookmark(bm.id)">×</button>
-        </div>
-      </nav>
-    </header>
-
-    <!-- New Tab Blank Viewport (Visible when active tab is about:blank) -->
-    <main v-if="activeTab.url === 'about:blank' && !showEditor" class="blank-viewport">
-      <h1>Loonakulf Browser</h1>
-      <p>Enter a website URL above, or click <strong>+ New Bookmarklet</strong> to write custom page scripts.</p>
-    </main>
-
-    <!-- Bookmarklet Editor Modal -->
-    <div v-if="showEditor" class="editor-modal">
-      <div class="editor-card">
-        <h2>Bookmarklet Studio</h2>
-        <input v-model="editorName" placeholder="Bookmarklet Name (e.g., Dark Mode)" class="name-input" />
-        <textarea v-model="editorCode" rows="10" spellcheck="false"></textarea>
-        <div class="editor-actions">
-          <button type="button" @click="testEditorCode">▶ Run on Active Tab</button>
-          <button type="button" class="primary" @click="saveEditorBookmarklet">Save to Bar</button>
-          <button type="button" @click="closeEditor">Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
-<style scoped>
-.loonakulf-app {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #11111b;
-  color: #cdd6f4;
-  font-family: system-ui, sans-serif;
-}
-.browser-chrome {
-  height: 148px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: #1e1e2e;
-  border-bottom: 1px solid #313244;
-}
-.tab-strip {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-}
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: #181825;
-  border-radius: 6px;
-  cursor: pointer;
-  max-width: 180px;
-  font-size: 13px;
-}
-.tab.active {
-  background: #313244;
-  color: #fff;
-  font-weight: 600;
-}
-.tab-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.close-tab, .new-tab-btn {
-  background: none;
-  border: none;
-  color: #a6adc8;
-  cursor: pointer;
-}
-.toolbar {
-  display: flex;
-  gap: 8px;
-}
-.toolbar input {
-  flex: 1;
-  padding: 7px 12px;
-  border-radius: 6px;
-  border: 1px solid #45475a;
-  background: #11111b;
-  color: #fff;
-}
-.bookmarks-bar {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  align-items: center;
-}
-.bookmark-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #313244;
-  padding: 3px 9px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-.bookmark-item a {
-  color: #89b4fa;
-  text-decoration: none;
-}
-.delete-btn {
-  background: none;
-  border: none;
-  color: #f38ba8;
-  cursor: pointer;
-}
-.blank-viewport {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #a6adc8;
-}
-.editor-modal {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-.editor-card {
-  width: 100%;
-  max-width: 600px;
-  background: #1e1e2e;
-  padding: 20px;
-  border-radius: 10px;
-  border: 1px solid #45475a;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.name-input, textarea {
-  width: 100%;
-  box-sizing: border-box;
-  background: #11111b;
-  color: #a6e3a1;
-  border: 1px solid #45475a;
-  border-radius: 6px;
-  padding: 10px;
-  font-family: monospace;
-}
-.editor-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-button {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #45475a;
-  background: #313244;
-  color: #fff;
-  cursor: pointer;
-}
-button.primary {
-  background: #89b4fa;
-  color: #11111b;
-  font-weight: bold;
-}
-</style>
-
-<script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { formatNavigationTarget, isBlank } from './utils/urlHelper.js';
-
-// ... (keep existing bookmarks, tabs, activeTabId, addressInput, and editor state) ...
-
-// --- 1. Live URL & Title Event Syncing ---
-let unlistenUrl = null;
-let unlistenTitle = null;
-
-onMounted(async () => {
-  unlistenUrl = await listen('tab-url-changed', (event) => {
-    const { tab_id, url } = event.payload;
-    const targetTab = tabs.value.find(t => t.id === tab_id);
-    if (targetTab) {
-      targetTab.url = url;
-      if (activeTabId.value === tab_id) {
-        addressInput.value = url;
-      }
-    }
-  });
-
-  unlistenTitle = await listen('tab-title-changed', (event) => {
-    const { tab_id, title } = event.payload;
-    const targetTab = tabs.value.find(t => t.id === tab_id);
-    if (targetTab) {
-      targetTab.title = title;
-    }
-  });
-});
-
-onUnmounted(() => {
-  if (unlistenUrl) unlistenUrl();
-  if (unlistenTitle) unlistenTitle();
-});
-
-// --- 2. JSON Export & Import for Bookmarklet Collections ---
+// --- JSON Export & Import ---
 const fileInputRef = ref(null);
 
 function exportBookmarksJson() {
@@ -396,7 +162,6 @@ function handleImportJson(event) {
       const imported = JSON.parse(e.target.result);
       if (!Array.isArray(imported)) throw new Error('Invalid format');
 
-      // Validate each item has a name and url before adding
       const validItems = imported
         .filter(item => !isBlank(item?.name) && !isBlank(item?.url))
         .map(item => ({
@@ -410,9 +175,127 @@ function handleImportJson(event) {
     } catch {
       alert('Invalid JSON file. Expected an array of { name, url } objects.');
     } finally {
-      event.target.value = ''; // Reset input so the same file can be re-imported if needed
+      event.target.value = '';
     }
   };
   reader.readAsText(file);
 }
+
+// --- Keyboard Shortcuts ---
+function handleKeydown(e) {
+  const isMod = e.ctrlKey || e.metaKey;
+
+  if (isMod && e.key.toLowerCase() === 't') {
+    e.preventDefault();
+    createNewTab();
+  } else if (isMod && e.key.toLowerCase() === 'w') {
+    e.preventDefault();
+    removeTab(activeTabId.value);
+  } else if (isMod && e.key.toLowerCase() === 'l') {
+    e.preventDefault();
+    addressInputRef.value?.focus();
+    addressInputRef.value?.select();
+  } else if ((isMod && e.key.toLowerCase() === 'r') || e.key === 'F5') {
+    e.preventDefault();
+    triggerTabAction('reload');
+  }
+}
+
+// --- Live URL & Title Syncing ---
+let unlistenUrl = null;
+let unlistenTitle = null;
+
+onMounted(async () => {
+  window.addEventListener('keydown', handleKeydown);
+
+  unlistenUrl = await listen('tab-url-changed', (event) => {
+    const { tab_id, url } = event.payload;
+    const targetTab = tabs.value.find(t => t.id === tab_id);
+    if (targetTab) {
+      targetTab.url = url;
+      if (activeTabId.value === tab_id) {
+        addressInput.value = url;
+      }
+    }
+  });
+
+  unlistenTitle = await listen('tab-title-changed', (event) => {
+    const { tab_id, title } = event.payload;
+    const targetTab = tabs.value.find(t => t.id === tab_id);
+    if (targetTab) {
+      targetTab.title = title;
+    }
+  });
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+  if (unlistenUrl) unlistenUrl();
+  if (unlistenTitle) unlistenTitle();
+});
 </script>
+
+<template>
+  <div class="loonakulf-app">
+    <!-- Top Browser Chrome (148px matches CHROME_HEIGHT = 148.0 in Rust) -->
+    <header class="browser-chrome">
+      <!-- Row 1: Tab Strip -->
+      <div class="tab-strip">
+        <div 
+          v-for="tab in tabs" 
+          :key="tab.id" 
+          class="tab" 
+          :class="{ active: tab.id === activeTabId }"
+          @click="selectTab(tab)"
+        >
+          <span class="tab-title">{{ tab.title }}</span>
+          <button type="button" class="close-tab" @click.stop="removeTab(tab.id)">×</button>
+        </div>
+        <button type="button" class="new-tab-btn" @click="createNewTab">+</button>
+      </div>
+
+      <!-- Row 2: Navigation & Address Bar -->
+      <form class="toolbar" @submit.prevent="handleNavigation()">
+        <button type="button" :disabled="activeTab.url === 'about:blank'" @click="triggerTabAction('back')" title="Back">←</button>
+        <button type="button" :disabled="activeTab.url === 'about:blank'" @click="triggerTabAction('forward')" title="Forward">→</button>
+        <button type="button" :disabled="activeTab.url === 'about:blank'" @click="triggerTabAction('reload')" title="Reload (Ctrl+R)">↻</button>
+
+        <input 
+          ref="addressInputRef"
+          v-model="addressInput" 
+          placeholder="Enter URL or javascript:... bookmarklet (Ctrl+L)" 
+        />
+        <button type="submit">Go</button>
+        <button type="button" @click="openEditor">+ New Bookmarklet</button>
+      </form>
+
+      <!-- Row 3: Bookmarks & Bookmarklets Bar -->
+      <nav class="bookmarks-bar">
+        <div class="bookmark-list">
+          <div v-for="bm in bookmarks" :key="bm.id" class="bookmark-item">
+            <a href="#" @click.prevent="handleNavigation(bm.url)">{{ bm.name }}</a>
+            <button type="button" class="delete-btn" @click="removeBookmark(bm.id)">×</button>
+          </div>
+        </div>
+
+        <div class="bookmark-tools">
+          <button type="button" @click="exportBookmarksJson" title="Export JSON">Export</button>
+          <button type="button" @click="triggerImportJson" title="Import JSON">Import</button>
+          <input 
+            ref="fileInputRef" 
+            type="file" 
+            accept=".json,application/json" 
+            style="display: none" 
+            @change="handleImportJson" 
+          />
+        </div>
+      </nav>
+    </header>
+
+    <!-- New Tab Blank Viewport -->
+    <main v-if="activeTab.url === 'about:blank' && !showEditor" class="blank-viewport">
+      <h1>Loonakulf Browser</h1>
+      <p>Enter a website URL above, or click <strong>+ New Bookmarklet</strong> to write custom page scripts.</p>
+    </main>
+
+    <!-- Bookmarklet Studio Modal -->
