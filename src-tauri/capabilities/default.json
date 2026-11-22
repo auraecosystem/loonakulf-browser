@@ -1,0 +1,22 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for Loonakulf Browser main UI and child tab webviews",
+  "windows": ["main"],
+  "webviews": ["main", "tab-*"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-inner-size",
+    "core:window:allow-scale-factor",
+    "core:webview:default",
+    "core:webview:allow-create-webview",
+    "core:webview:allow-webview-close",
+    "core:webview:allow-webview-show",
+    "core:webview:allow-webview-hide",
+    "core:webview:allow-set-webview-size",
+    "core:event:default",
+    "core:event:allow-listen",
+    "core:event:allow-emit"
+  ]
+}
