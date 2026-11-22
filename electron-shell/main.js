@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain } = require("electron");
 const path = require("path");
 const { isValidUserAgent } = require("./platform");
 
@@ -107,21 +107,50 @@ function createWindow() {
   });
 }
 
-ipcMain.on("execute-bookmarklet", (event, rawCode) => {
+ipcMain.on("execute-bookmarklet", async (event, rawCode) => {
   const contents = getTargetWebContents(event);
-  if (!contents || typeof rawCode !== "string" || rawCode.length > MAX_BOOKMARKLET_LENGTH) {
+  if (!contents || typeof rawCode !== "string" || rawCode.length === 0 || rawCode.length > MAX_BOOKMARKLET_LENGTH) {
     console.warn("[Bookmarklet] Rejected untrusted sender or invalid payload.");
     return;
   }
-  let cleanCode = rawCode;
+
+  let cleanCode = rawCode.trim();
   if (/^javascript:/i.test(cleanCode)) {
+    cleanCode = cleanCode.slice("javascript:".length).trim();
+  }
+  if (!cleanCode || /[\u0000]/.test(cleanCode)) {
+    console.warn("[Bookmarklet] Rejected empty or malformed source.");
+    return;
+  }
+  if (/%(?:[0-9a-f]{2})/i.test(cleanCode)) {
     try {
-      cleanCode = decodeURIComponent(cleanCode.replace(/^javascript:/i, ""));
+      cleanCode = decodeURIComponent(cleanCode);
     } catch (_error) {
       console.warn("[Bookmarklet] Rejected malformed encoded payload.");
       return;
     }
   }
+
+  const targetUrl = contents.getURL();
+  let targetOrigin = "the active page";
+  try { targetOrigin = new URL(targetUrl).origin; } catch (_error) { /* retain generic label */ }
+
+  // Consent is enforced in the native process, not only by renderer UI.
+  const response = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    title: "Run bookmarklet?",
+    message: "This bookmarklet will execute in the active page.",
+    detail: `Target: ${targetOrigin}\n\nBookmarklets can read and modify page content and use the page's privileges. Only continue if you trust this source.`,
+    buttons: ["Cancel", "Run bookmarklet"],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+  if (response.response !== 1 || contents.isDestroyed() || getTargetWebContents(event) !== contents) {
+    console.info("[Bookmarklet] Execution cancelled or target changed.");
+    return;
+  }
+
   contents.executeJavaScript(cleanCode).catch((error) => {
     console.error("[Bookmarklet] Execution failed:", error);
   });
