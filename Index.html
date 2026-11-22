@@ -3,3 +3,32 @@
   <button type="submit">Generate Receipt</button>
   <a href="#" id="clearBtn">Clear Form</a>
 </form>
+      <!-- Row 2: Navigation & Address Bar -->
+      <form class="toolbar" @submit.prevent="handleNavigation()">
+        <button 
+          type="button" 
+          :disabled="activeTab.url === 'about:blank'" 
+          @click="triggerTabAction('back')" 
+          title="Back"
+        >←</button>
+        <button 
+          type="button" 
+          :disabled="activeTab.url === 'about:blank'" 
+          @click="triggerTabAction('forward')" 
+          title="Forward"
+        >→</button>
+        <button 
+          type="button" 
+          :disabled="activeTab.url === 'about:blank'" 
+          @click="triggerTabAction('reload')" 
+          title="Reload (Ctrl+R)"
+        >↻</button>
+
+        <input 
+          ref="addressInputRef"
+          v-model="addressInput" 
+          placeholder="Enter URL or javascript:... bookmarklet (Ctrl+L)" 
+        />
+        <button type="submit">Go</button>
+        <button type="button" @click="openEditor">+ New Bookmarklet</button>
+      </form>
