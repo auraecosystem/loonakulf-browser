@@ -101,7 +101,14 @@ sequenceDiagram
         Shell-->>UI: Structured error
     end
 ```
-
+```ascii
+loonakulf-browser/
+├── index.html      <-- Clean HTML tags (buttons, forms, links)
+├── style.css       <-- Styling (making buttons look like links, etc.)
+└── js/
+    ├── utils.js    <-- Reusable helper functions (like isBlank)
+    └── app.js      <-- Event listeners & window actions
+```
 ### Design rules
 
 1. **One UI, multiple shells.** Shared workflows belong in `shared-react-ui`; native lifecycle and OS integration belong in the shell.
