@@ -7,13 +7,26 @@ let targetWebpageView;
 
 const MAX_BOOKMARKLET_LENGTH = 256 * 1024;
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
+const TRUSTED_UI_ORIGIN = "http://localhost:3000";
+
+function isTrustedUiUrl(value) {
+  try {
+    return new URL(value).origin === TRUSTED_UI_ORIGIN;
+  } catch (_error) {
+    return false;
+  }
+}
 
 function isTrustedUiSender(event) {
+  const frame = event.senderFrame;
   return Boolean(
     mainWindow &&
     !mainWindow.isDestroyed() &&
     event.sender === mainWindow.webContents &&
-    event.senderFrame === event.sender.mainFrame
+    frame &&
+    frame === event.sender.mainFrame &&
+    frame.isMainFrame &&
+    isTrustedUiUrl(frame.url)
   );
 }
 
@@ -62,8 +75,14 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL("http://localhost:3000");
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
+    if (!isTrustedUiUrl(navigationUrl)) event.preventDefault();
+  });
+  mainWindow.webContents.on("will-redirect", (event, navigationUrl) => {
+    if (!isTrustedUiUrl(navigationUrl)) event.preventDefault();
+  });
+  mainWindow.loadURL(TRUSTED_UI_ORIGIN);
 
   targetWebpageView = new BrowserWindow({
     width: 1300,
@@ -126,7 +145,6 @@ ipcMain.on("execute-bookmarklet", async (event, rawCode) => {
   let targetOrigin = "the active page";
   try { targetOrigin = new URL(targetUrl).origin; } catch (_error) { /* retain generic label */ }
 
-  // Consent is enforced in the native process, not only by renderer UI.
   const response = await dialog.showMessageBox(mainWindow, {
     type: "warning",
     title: "Run bookmarklet?",
@@ -137,7 +155,12 @@ ipcMain.on("execute-bookmarklet", async (event, rawCode) => {
     cancelId: 0,
     noLink: true,
   });
-  if (response.response !== 1 || contents.isDestroyed() || getTargetWebContents(event) !== contents) {
+  if (
+    response.response !== 1 ||
+    contents.isDestroyed() ||
+    contents.getURL() !== targetUrl ||
+    getTargetWebContents(event) !== contents
+  ) {
     console.info("[Bookmarklet] Execution cancelled or target changed.");
     return;
   }
