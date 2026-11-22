@@ -29,18 +29,40 @@ class ViewController: UIViewController, WKScriptMessageHandler {
         self.view.addSubview(targetWebView)
     }
 
-    // Capture execution messages coming straight from React buttons
+    // Native confirmation is required even when the shared UI has already prompted.
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if message.name == "bookmarkletBridge", let rawCode = message.body as? String {
-            // Clean protocol wrapper strings
-            let cleanCode = rawCode.replacingOccurrences(of: "javascript:", with: "").removingPercentEncoding ?? ""
-            
-            // Fire target code directly against current site contents
-            targetWebView.evaluateJavaScript(cleanCode) { (result, error) in
-                if let err = error {
-                    print("Mobile script engine error: \(err.localizedDescription)")
+        guard message.name == "bookmarkletBridge",
+              let rawCode = message.body as? String,
+              !rawCode.isEmpty,
+              rawCode.utf8.count <= 256 * 1024 else {
+            return
+        }
+
+        var cleanCode = rawCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleanCode.range(of: "^javascript:", options: [.regularExpression, .caseInsensitive]) != nil {
+            cleanCode = String(cleanCode.dropFirst("javascript:".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !cleanCode.isEmpty, !cleanCode.contains("\\0") else { return }
+        if cleanCode.range(of: "%[0-9a-fA-F]{2}", options: .regularExpression) != nil {
+            guard let decoded = cleanCode.removingPercentEncoding else { return }
+            cleanCode = decoded
+        }
+
+        let origin = targetWebView.url?.host ?? "the active page"
+        let alert = UIAlertController(
+            title: "Run bookmarklet?",
+            message: "This script will execute on \\(origin). Bookmarklets can read and modify page content and use the page's privileges. Continue?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Run", style: .destructive) { [weak self] _ in
+            guard let self = self, self.targetWebView.url?.host == origin else { return }
+            self.targetWebView.evaluateJavaScript(cleanCode) { (_, error) in
+                if let error = error {
+                    print("Mobile script engine error: \\(error.localizedDescription)")
                 }
             }
-        }
+        })
+        present(alert, animated: true)
     }
 }
