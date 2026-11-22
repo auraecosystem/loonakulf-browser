@@ -20,7 +20,7 @@ class PyQtBridge(QObject):
 
         clean_code = raw_code.strip()
         clean_code = re.sub(r"^javascript:", "", clean_code, count=1, flags=re.IGNORECASE).strip()
-        if not clean_code or "\\x00" in clean_code:
+        if not clean_code or "\x00" in clean_code:
             return
         if re.search(r"%[0-9a-fA-F]{2}", clean_code):
             try:
@@ -32,7 +32,7 @@ class PyQtBridge(QObject):
         answer = QMessageBox.question(
             self.parent(),
             "Run bookmarklet?",
-            f"This script will execute in the active page:\\n{page_url}\\n\\n"
+            f"This script will execute in the active page:\n{page_url}\n\n"
             "Bookmarklets can read and modify page content and use the page's privileges. Continue?",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
