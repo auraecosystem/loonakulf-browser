@@ -1,58 +1,59 @@
+/**
+ * Bookmarklet input handling.
+ *
+ * This module performs bounded structural normalization only. It deliberately
+ * does not parse by executing source (new Function/eval), rewrite comments, or
+ * repeatedly decode percent-encoded input. Validation is not a safety verdict.
+ */
+const MAX_BOOKMARKLET_LENGTH = 256 * 1024;
+
 export function processAndValidateBookmarklet(inputCode) {
-  let code = inputCode ? inputCode.trim() : "";
-  if (!code) return { isValid: false, error: "Code field cannot be empty.", cleanCode: "" };
-
-  if (code.toLowerCase().startsWith("javascript:")) {
-    code = code.substring(11).trim();
+  if (typeof inputCode !== "string") {
+    return { isValid: false, error: "Code field must be text.", cleanCode: "" };
+  }
+  if (inputCode.length > MAX_BOOKMARKLET_LENGTH) {
+    return { isValid: false, error: "Bookmarklet exceeds the 256 KiB source limit.", cleanCode: "" };
   }
 
-  try {
-    let decoded = code;
-    while (decoded !== decodeURIComponent(decoded)) {
-      decoded = decodeURIComponent(decoded);
+  let code = inputCode.trim();
+  if (!code) {
+    return { isValid: false, error: "Code field cannot be empty.", cleanCode: "" };
+  }
+  if (/^javascript:/i.test(code)) {
+    code = code.slice("javascript:".length).trim();
+  }
+  if (!code) {
+    return { isValid: false, error: "Bookmarklet contains no source.", cleanCode: "" };
+  }
+  if (/[\u0000]/.test(code)) {
+    return { isValid: false, error: "Bookmarklet contains a null byte.", cleanCode: "" };
+  }
+
+  // Decode once only. Repeated decoding can change the program's meaning.
+  if (/%(?:[0-9a-f]{2})/i.test(code)) {
+    try {
+      code = decodeURIComponent(code);
+    } catch (_error) {
+      return { isValid: false, error: "Bookmarklet contains malformed percent encoding.", cleanCode: "" };
     }
-    code = decoded;
-  } catch (e) {
-    return { isValid: false, error: "Failed to decode URL characters safely.", cleanCode: "" };
   }
-
-  code = code.replace(/\/\*[\s\S]*?\*\//g, "");
-  let lines = code.split(/\r?\n/).map(line => {
-    let cleanLine = line.trim();
-    if (cleanLine.startsWith("//")) return "";
-    return cleanLine;
-  });
-  
-  code = lines.filter(line => line.length > 0).join(" ");
-
-  try {
-    new Function(code);
-  } catch (syntaxError) {
-    return { isValid: false, error: `Syntax Verification Failed: ${syntaxError.message}`, cleanCode: "" };
-  }
-
-  if (!code.startsWith("(function") && !code.startsWith("javascript:(function")) {
-    code = `(function(){${code}})();`;
+  if (!code.trim()) {
+    return { isValid: false, error: "Bookmarklet contains no source.", cleanCode: "" };
   }
 
   return { isValid: true, error: null, cleanCode: `javascript:${code}` };
 }
 
-export function auditScriptSecurityRisks(cleanCode) {
-  const securityWarnings = [];
-  const lowercaseCode = cleanCode.toLowerCase();
-
-  if (lowercaseCode.includes("document.cookie")) {
-    securityWarnings.push("⚠️ Reading Session Cookies: This script accesses document.cookie, which may expose login tokens.");
-  }
-  if (lowercaseCode.includes("fetch(") || lowercaseCode.includes("xmlhttprequest") || lowercaseCode.includes("$.ajax")) {
-    if (lowercaseCode.includes(".php") || lowercaseCode.includes("api/") || lowercaseCode.includes("http")) {
-      securityWarnings.push("🌐 Cross-Domain Data Transmission: This script transmits data packets to an external network endpoint.");
-    }
-  }
-  if (lowercaseCode.includes("input[type=\"password\"]") || lowercaseCode.includes("type='password'")) {
-    securityWarnings.push("🔒 Password Input Inspection: This script explicitly searches for security credential input elements.");
-  }
-
-  return { isHighRisk: securityWarnings.length > 0, warnings: securityWarnings };
+export function auditScriptSecurityRisks(source) {
+  const code = typeof source === "string" ? source : "";
+  const checks = [
+    [/\bdocument\s*\.\s*cookie\b/i, "Reads document.cookie; this may expose session data."],
+    [/\b(?:fetch|XMLHttpRequest|WebSocket|sendBeacon)\s*\(/i, "May send or receive data over the network."],
+    [/\binput\s*\[[^\]]*type\s*=\s*['"]?password/i, "Inspects password fields."],
+    [/\b(?:eval|Function)\s*\(/i, "Uses dynamic code execution."],
+    [/\b(?:localStorage|sessionStorage|indexedDB)\b/i, "Accesses page-origin browser storage."],
+    [/\.\s*submit\s*\(/i, "May submit a page form."]
+  ];
+  const warnings = checks.filter(([pattern]) => pattern.test(code)).map(([, message]) => message);
+  return { isHighRisk: warnings.length > 0, warnings };
 }
