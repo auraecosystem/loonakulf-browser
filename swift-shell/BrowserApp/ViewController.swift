@@ -42,7 +42,7 @@ class ViewController: UIViewController, WKScriptMessageHandler {
         if cleanCode.range(of: "^javascript:", options: [.regularExpression, .caseInsensitive]) != nil {
             cleanCode = String(cleanCode.dropFirst("javascript:".count)).trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        guard !cleanCode.isEmpty, !cleanCode.contains("\\0") else { return }
+        guard !cleanCode.isEmpty, !cleanCode.contains("\0") else { return }
         if cleanCode.range(of: "%[0-9a-fA-F]{2}", options: .regularExpression) != nil {
             guard let decoded = cleanCode.removingPercentEncoding else { return }
             cleanCode = decoded
@@ -51,7 +51,7 @@ class ViewController: UIViewController, WKScriptMessageHandler {
         let origin = targetWebView.url?.host ?? "the active page"
         let alert = UIAlertController(
             title: "Run bookmarklet?",
-            message: "This script will execute on \\(origin). Bookmarklets can read and modify page content and use the page's privileges. Continue?",
+            message: "This script will execute on \(origin). Bookmarklets can read and modify page content and use the page's privileges. Continue?",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -59,7 +59,7 @@ class ViewController: UIViewController, WKScriptMessageHandler {
             guard let self = self, self.targetWebView.url?.host == origin else { return }
             self.targetWebView.evaluateJavaScript(cleanCode) { (_, error) in
                 if let error = error {
-                    print("Mobile script engine error: \\(error.localizedDescription)")
+                    print("Mobile script engine error: \(error.localizedDescription)")
                 }
             }
         })
