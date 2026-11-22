@@ -147,12 +147,17 @@ export default function App() {
 
   const handleExecute = (code) => {
     const audit = auditScriptSecurityRisks(code);
-    if (
-      audit.isHighRisk &&
-      !window.confirm(
-        `🛡️ SECURITY SHIELD WARNING:\n\n${audit.warnings.join("\n\n")}\n\nRun script anyway?`,
-      )
-    ) {
+    const findings = audit.warnings.length
+      ? audit.warnings.join("\n\n")
+      : "No known high-risk patterns were detected. Static checks cannot prove a script is safe.";
+    const targetOrigin = (() => {
+      try { return new URL(currentUrl).origin; } catch (_error) { return "the active page"; }
+    })();
+    const approved = window.confirm(
+      `BOOKMARKLET PERMISSION\n\nTarget: ${targetOrigin}\n\n${findings}\n\nBookmarklets run with the active page's privileges and may read or change page data. Continue?`,
+    );
+    if (!approved) {
+      appendToConsole("info", "Bookmarklet execution cancelled.");
       return;
     }
     if (window.webkit?.messageHandlers?.bookmarkletBridge) {
