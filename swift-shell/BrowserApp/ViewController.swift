@@ -62,6 +62,18 @@ class ViewController: UIViewController, WKScriptMessageHandler, WKNavigationDele
         decisionHandler(isTrustedUiUrl(navigationAction.request.url) ? .allow : .cancel)
     }
 
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse,
+        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+    ) {
+        guard webView === uiWebView else {
+            decisionHandler(.allow)
+            return
+        }
+        decisionHandler(isTrustedUiUrl(navigationResponse.response.url) ? .allow : .cancel)
+    }
+
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "bookmarkletBridge",
               message.frameInfo.isMainFrame,
@@ -72,17 +84,15 @@ class ViewController: UIViewController, WKScriptMessageHandler, WKNavigationDele
             return
         }
 
-        let cleanCode: String
-        var candidate = rawCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        if candidate.range(of: "^javascript:", options: [.regularExpression, .caseInsensitive]) != nil {
-            candidate = String(candidate.dropFirst("javascript:".count))
+        var cleanCode = rawCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleanCode.range(of: "^javascript:", options: [.regularExpression, .caseInsensitive]) != nil {
+            cleanCode = String(cleanCode.dropFirst("javascript:".count))
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        guard !candidate.isEmpty, !candidate.contains("\0"),
+        guard !cleanCode.isEmpty, !cleanCode.contains("\0"),
               let targetUrl = targetWebView.url else {
             return
         }
-        cleanCode = candidate
 
         let origin = URLComponents(url: targetUrl, resolvingAgainstBaseURL: false)
         let targetLabel = origin?.host ?? "the active page"
