@@ -28,6 +28,9 @@ jobs:
       - name: Run platform regression tests
         working-directory: shared-react-ui
         run: npm run test:platform
+      - name: Run bookmarklet security regression tests
+        working-directory: shared-react-ui
+        run: npm run test:bookmarklets
       - name: Build React application
         working-directory: shared-react-ui
         env:
