@@ -43,11 +43,6 @@ class ViewController: UIViewController, WKScriptMessageHandler {
             cleanCode = String(cleanCode.dropFirst("javascript:".count)).trimmingCharacters(in: .whitespacesAndNewlines)
         }
         guard !cleanCode.isEmpty, !cleanCode.contains("\0") else { return }
-        if cleanCode.range(of: "%[0-9a-fA-F]{2}", options: .regularExpression) != nil {
-            guard let decoded = cleanCode.removingPercentEncoding else { return }
-            cleanCode = decoded
-        }
-
         let origin = targetWebView.url?.host ?? "the active page"
         let alert = UIAlertController(
             title: "Run bookmarklet?",
