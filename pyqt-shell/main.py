@@ -1,6 +1,5 @@
 import sys
 import re
-from urllib.parse import unquote
 from PyQt5.QtCore import QUrl, pyqtSlot, QObject
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QVBoxLayout, QWidget
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -22,12 +21,6 @@ class PyQtBridge(QObject):
         clean_code = re.sub(r"^javascript:", "", clean_code, count=1, flags=re.IGNORECASE).strip()
         if not clean_code or "\x00" in clean_code:
             return
-        if re.search(r"%[0-9a-fA-F]{2}", clean_code):
-            try:
-                clean_code = unquote(clean_code, errors="strict")
-            except (UnicodeDecodeError, ValueError):
-                return
-
         page_url = self.target_browser.url().toString()
         answer = QMessageBox.question(
             self.parent(),
