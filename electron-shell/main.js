@@ -122,15 +122,6 @@ ipcMain.on("execute-bookmarklet", async (event, rawCode) => {
     console.warn("[Bookmarklet] Rejected empty or malformed source.");
     return;
   }
-  if (/%(?:[0-9a-f]{2})/i.test(cleanCode)) {
-    try {
-      cleanCode = decodeURIComponent(cleanCode);
-    } catch (_error) {
-      console.warn("[Bookmarklet] Rejected malformed encoded payload.");
-      return;
-    }
-  }
-
   const targetUrl = contents.getURL();
   let targetOrigin = "the active page";
   try { targetOrigin = new URL(targetUrl).origin; } catch (_error) { /* retain generic label */ }
