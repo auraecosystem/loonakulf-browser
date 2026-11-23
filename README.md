@@ -1,3 +1,6 @@
+<img width="499" height="306" alt="IMG_0224" src="https://github.com/user-attachments/assets/9d9ac8cf-78dc-48b3-aee5-2c2c2a850cf1" />
+<img width="2816" height="1536" alt="E7116614-35DC-46A1-B230-2706B8DDDD3E" src="https://github.com/user-attachments/assets/dcbae462-b8f3-4937-8deb-6f5fd5cb5157" />
+
 <div align="center">
 
 # Loonakulf Browser
