@@ -10,7 +10,18 @@ cd ../electron-shell
 npm init -y
 npm install electron --save-dev
 npx electron main.js &
+curl https://cli.sentry.dev/install -fsS | bash
+brew install getsentry/tools/sentry
+npx sentry@latest
+nix build .#frontend
+chmod -R u+w frontend/dist 2>/dev/null; rm -rf frontend/dist && mkdir -p frontend/dist && cp -RL --no-preserve=mode ./result/* ./frontend/dist/
 
+env \
+  NIXOS_CHANNELS="$(cat "$(nix build --no-link --print-out-paths .#nixosChannelsJson)")" \
+  AUTOCOMPLETE_OUT_DIR=./dist/autocomplete \
+  nix develop -c npm --prefix=frontend run build:autocomplete
+
+nix develop -c npm --prefix=frontend run preview
 # 3. To test your Python setup environment
 cd ../pyqt-shell
 pip install PyQt5 PyQtWebEngine
