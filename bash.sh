@@ -3,7 +3,10 @@ npm run test:platform
 
 # Production build
 npm run build
-
+export LMLM_RESEARCH_MODEL="research-model"
+export LMLM_ENGINEERING_MODEL="coding-model"
+export LMLM_SECURITY_MODEL="security-model"
+export LMLM_SYNTHESIS_MODEL="reasoning-model"
 # Lint source files
 npm run lint
 git clone https://github.com/auraecosystem/loonakulf-browser.git
